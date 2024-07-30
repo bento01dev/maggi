@@ -17,6 +17,8 @@ type pageType int
 
 const (
 	splash pageType = iota
+	profile
+	home
 	issue
 )
 
@@ -34,7 +36,8 @@ type MaggiModel struct {
 func NewMaggiModel(debugFlag bool) *MaggiModel {
 	return &MaggiModel{
 		pages: map[pageType]Page{
-			issue: NewIssuePage(debugFlag),
+			issue:   NewIssuePage(debugFlag),
+			profile: NewProfilePage(),
 		},
 	}
 }
