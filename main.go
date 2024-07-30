@@ -18,6 +18,7 @@ func main() {
 func runApp() {
 	var profileStr string
 	var queryStr string
+	var debugFlag bool
 
 	app := &cli.App{
 		Version: "0.1",
@@ -26,8 +27,16 @@ func runApp() {
 			{
 				Name:  "ui",
 				Usage: "UI for managing your aliases",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:        "debug",
+						Value:       false,
+						Usage:       "debug mode",
+						Destination: &debugFlag,
+					},
+				},
 				Action: func(ctx *cli.Context) error {
-					return tui.Run()
+					return tui.Run(debugFlag)
 				},
 			},
 			{
