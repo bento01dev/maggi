@@ -10,7 +10,7 @@ import (
 type ProfileStartMsg struct{}
 
 type ProfileDoneMsg struct {
-	profileId int
+	profile string
 }
 
 func (p ProfileDoneMsg) Next() pageType {

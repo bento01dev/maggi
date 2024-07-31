@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"errors"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -16,7 +18,7 @@ var (
 type pageType int
 
 const (
-	splash pageType = iota
+	start pageType = iota
 	profile
 	home
 	issue
@@ -27,9 +29,20 @@ type Page interface {
 	UpdateSize(width, height int)
 }
 
+type PageTurner interface {
+	Next() pageType
+}
+
+type GenericTurner pageType
+
+func (g GenericTurner) Next() pageType {
+	return pageType(g)
+}
+
 type MaggiModel struct {
 	currentPage pageType
 	pages       map[pageType]Page
+	profile     string
 	err         error
 }
 
@@ -43,10 +56,14 @@ func NewMaggiModel(debugFlag bool) *MaggiModel {
 }
 
 func (m *MaggiModel) Init() tea.Cmd {
-	return nil
+	m.currentPage = start
+	return func() tea.Msg {
+		return GenericTurner(profile)
+	}
 }
 
 func (m *MaggiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		for _, page := range m.pages {
@@ -56,9 +73,37 @@ func (m *MaggiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
 		}
+	case PageTurner:
+		m.handlePageTransition(msg)
+		return m, m.pageInitCmd()
 	}
-	// TODO: add current page invocation
-	return nil, nil
+	page, ok := m.pages[m.currentPage]
+	if !ok {
+		m.err = errors.New("unknown page lookup")
+		m.currentPage = issue
+		return m, nil
+	}
+	_, cmd = page.Update(msg)
+	return m, cmd
+}
+
+func (m *MaggiModel) handlePageTransition(msg PageTurner) {
+	switch msg := msg.(type) {
+	case ProfileDoneMsg:
+		m.profile = msg.profile
+	}
+	m.currentPage = msg.Next()
+}
+
+func (m *MaggiModel) pageInitCmd() tea.Cmd {
+	var msg tea.Msg
+	switch m.currentPage {
+	case start:
+		msg = ProfileStartMsg{}
+	}
+	return func() tea.Msg {
+		return msg
+	}
 }
 
 func (m *MaggiModel) View() string {
