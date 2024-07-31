@@ -2,17 +2,23 @@ package tui
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 var (
-	green  = lipgloss.Color("#04b575")
-	yellow = lipgloss.Color("#ffd866")
-	red    = lipgloss.Color("#ff6188")
-	blue   = lipgloss.Color("#2ea0f9")
-	muted  = lipgloss.Color("241")
+	green               = lipgloss.Color("#04b575")
+	yellow              = lipgloss.Color("#ffd866")
+	red                 = lipgloss.Color("#ff6188")
+	blue                = lipgloss.Color("#2ea0f9")
+	muted               = lipgloss.Color("241")
+	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(4).Foreground(blue)
+	unselectedItemStyle = lipgloss.NewStyle().PaddingLeft(4).Foreground(muted)
 )
 
 type pageType int
@@ -37,6 +43,30 @@ type GenericTurner pageType
 
 func (g GenericTurner) Next() pageType {
 	return pageType(g)
+}
+
+type ListRenderFunc func(list.Item) string
+
+type ListItemDelegate struct {
+	RenderFunc ListRenderFunc
+}
+
+func (i ListItemDelegate) Height() int                             { return 1 }
+func (i ListItemDelegate) Spacing() int                            { return 0 }
+func (i ListItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (i ListItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	itemStr := i.RenderFunc(listItem)
+	if itemStr == "" {
+		return
+	}
+
+	styleFn := unselectedItemStyle.Render
+	if index == m.Index() {
+		styleFn = func(s ...string) string {
+			return selectedItemStyle.Render("> " + strings.Join(s, " "))
+		}
+	}
+	fmt.Fprint(w, styleFn(i.RenderFunc(listItem)))
 }
 
 type MaggiModel struct {

@@ -44,9 +44,9 @@ type IssuePage struct {
 
 func NewIssuePage(debugFlag bool) *IssuePage {
 	helpMenu := help.New()
-	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"})
-	descStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"})
-	sepStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"})
+	keyStyle := lipgloss.NewStyle().Foreground(muted)
+	descStyle := lipgloss.NewStyle().Foreground(muted)
+	sepStyle := lipgloss.NewStyle().Foreground(muted)
 	helpStyles := help.Styles{
 		ShortKey:       keyStyle,
 		ShortDesc:      descStyle,
