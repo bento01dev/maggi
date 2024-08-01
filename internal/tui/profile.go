@@ -18,10 +18,15 @@ func (p ProfileDoneMsg) Next() pageType {
 	return home
 }
 
+type retrieveMsg struct {
+	profiles []string
+}
+
 type profileStage int
 
 const (
-	listProfiles profileStage = iota
+	retrieveProfiles profileStage = iota
+	listProfiles
 	newProfile
 	updateProfile
 	deleteProfile
@@ -61,12 +66,14 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 }
 
 type ProfilePage struct {
-	width    int
-	height   int
-	actions  list.Model
-	profiles list.Model
-	helpMenu help.Model
-	keys     profileHelpKeys
+	width        int
+	height       int
+	currentStage profileStage
+	actions      list.Model
+	actionsStyle lipgloss.Style
+	profiles     list.Model
+	helpMenu     help.Model
+	keys         profileHelpKeys
 }
 
 func NewProfilePage() *ProfilePage {
@@ -120,7 +127,7 @@ func NewProfilePage() *ProfilePage {
 			next:        updateProfile,
 		},
 	}
-	actions := list.New(actionsList, ListItemDelegate{RenderFunc: renderActionItem}, 200, 2)
+	actions := list.New(actionsList, ListItemDelegate{RenderFunc: renderActionItem}, 15, 2)
 	actions.SetShowTitle(false)
 	actions.SetShowStatusBar(false)
 	actions.SetShowFilter(false)
@@ -128,10 +135,13 @@ func NewProfilePage() *ProfilePage {
 	actions.SetShowPagination(false)
 	actions.SetShowHelp(false)
 
+	actionStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
+
 	return &ProfilePage{
-		helpMenu: helpMenu,
-		keys:     keys,
-		actions:  actions,
+		helpMenu:     helpMenu,
+		keys:         keys,
+		actions:      actions,
+		actionsStyle: actionStyle,
 	}
 }
 
@@ -140,7 +150,24 @@ func (p *ProfilePage) Init() tea.Cmd {
 }
 
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case ProfileStartMsg:
+		p.currentStage = retrieveProfiles
+		return p, p.getProfiles()
+	case retrieveMsg:
+		p.currentStage = listProfiles
+		p.setProfileList(msg.profiles)
+	}
 	return nil, nil
+}
+
+func (p *ProfilePage) getProfiles() tea.Cmd {
+	return func() tea.Msg {
+		return retrieveMsg{profiles: []string{"global", "stg", "prd"}}
+	}
+}
+
+func (p *ProfilePage) setProfileList(profileStrs []string) {
 }
 
 func (p *ProfilePage) View() string {
@@ -151,7 +178,7 @@ func (p *ProfilePage) View() string {
 		lipgloss.Center,
 		lipgloss.JoinVertical(
 			lipgloss.Center,
-			p.actions.View(),
+			p.actionsStyle.Render(p.actions.View()),
 			p.helpMenu.View(p.keys),
 		),
 	)
