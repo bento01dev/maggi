@@ -46,6 +46,19 @@ func renderActionItem(i list.Item) string {
 	return a.description
 }
 
+type profileItem struct {
+	name string
+}
+
+func (p profileItem) FilterValue() string { return "" }
+func renderProfileItem(i list.Item) string {
+	p, ok := i.(profileItem)
+	if !ok {
+		return ""
+	}
+	return p.name
+}
+
 type profileHelpKeys struct {
 	ToggleView key.Binding
 	Quit       key.Binding
@@ -66,14 +79,15 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 }
 
 type ProfilePage struct {
-	width        int
-	height       int
-	currentStage profileStage
-	actions      list.Model
-	actionsStyle lipgloss.Style
-	profiles     list.Model
-	helpMenu     help.Model
-	keys         profileHelpKeys
+	width         int
+	height        int
+	currentStage  profileStage
+	actions       list.Model
+	actionsStyle  lipgloss.Style
+	profiles      list.Model
+	profilesStyle lipgloss.Style
+	helpMenu      help.Model
+	keys          profileHelpKeys
 }
 
 func NewProfilePage() *ProfilePage {
@@ -135,13 +149,15 @@ func NewProfilePage() *ProfilePage {
 	actions.SetShowPagination(false)
 	actions.SetShowHelp(false)
 
-	actionStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
+	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
+	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
 
 	return &ProfilePage{
-		helpMenu:     helpMenu,
-		keys:         keys,
-		actions:      actions,
-		actionsStyle: actionStyle,
+		helpMenu:      helpMenu,
+		keys:          keys,
+		actions:       actions,
+		actionsStyle:  actionsStyle,
+		profilesStyle: profilesStyle,
 	}
 }
 
@@ -152,11 +168,12 @@ func (p *ProfilePage) Init() tea.Cmd {
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProfileStartMsg:
-		p.currentStage = retrieveProfiles
+		p.currentStage = newProfile
 		return p, p.getProfiles()
 	case retrieveMsg:
 		p.currentStage = listProfiles
 		p.setProfileList(msg.profiles)
+		return p, nil
 	}
 	return nil, nil
 }
@@ -168,9 +185,40 @@ func (p *ProfilePage) getProfiles() tea.Cmd {
 }
 
 func (p *ProfilePage) setProfileList(profileStrs []string) {
+	profilesList := []list.Item{}
+	for _, profileStr := range profileStrs {
+		profilesList = append(profilesList, profileItem{name: profileStr})
+	}
+	profiles := list.New(profilesList, ListItemDelegate{RenderFunc: renderProfileItem}, 15, 2)
+	profiles.SetShowTitle(false)
+	profiles.SetShowStatusBar(false)
+	profiles.SetShowFilter(false)
+	profiles.SetFilteringEnabled(false)
+	profiles.SetShowPagination(false)
+	profiles.SetShowHelp(false)
+
+	p.profiles = profiles
 }
 
 func (p *ProfilePage) View() string {
+	switch p.currentStage {
+	case listProfiles:
+		return lipgloss.Place(
+			p.width,
+			p.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				lipgloss.JoinHorizontal(
+					lipgloss.Center,
+					p.profilesStyle.Render(p.profiles.View()),
+					p.actionsStyle.Render(p.actions.View()),
+				),
+				p.helpMenu.View(p.keys),
+			),
+		)
+	}
 	return lipgloss.Place(
 		p.width,
 		p.height,

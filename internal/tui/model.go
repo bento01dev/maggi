@@ -99,6 +99,7 @@ func (m *MaggiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, page := range m.pages {
 			page.UpdateSize(msg.Width, msg.Height)
 		}
+		return m, nil
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
