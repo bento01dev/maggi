@@ -127,6 +127,42 @@ func NewProfilePage() *ProfilePage {
 			key.WithHelp("<esc>", "quit view"),
 		),
 	}
+	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
+	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
+
+	return &ProfilePage{
+		helpMenu:      helpMenu,
+		keys:          keys,
+		actionsStyle:  actionsStyle,
+		profilesStyle: profilesStyle,
+	}
+}
+
+func (p *ProfilePage) Init() tea.Cmd {
+	return nil
+}
+
+func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case ProfileStartMsg:
+		p.currentStage = retrieveProfiles
+		return p, p.getProfiles()
+	case retrieveMsg:
+		p.currentStage = listProfiles
+		p.setActionsList()
+		p.setProfileList(msg.profiles)
+		return p, nil
+	}
+	return nil, nil
+}
+
+func (p *ProfilePage) getProfiles() tea.Cmd {
+	return func() tea.Msg {
+		return retrieveMsg{profiles: []string{"global", "stg", "prd"}}
+	}
+}
+
+func (p *ProfilePage) setActionsList() {
 	actionsList := []list.Item{
 		actionItem{
 			description: "Add Profile",
@@ -141,47 +177,7 @@ func NewProfilePage() *ProfilePage {
 			next:        updateProfile,
 		},
 	}
-	actions := list.New(actionsList, ListItemDelegate{RenderFunc: renderActionItem}, 15, 2)
-	actions.SetShowTitle(false)
-	actions.SetShowStatusBar(false)
-	actions.SetShowFilter(false)
-	actions.SetFilteringEnabled(false)
-	actions.SetShowPagination(false)
-	actions.SetShowHelp(false)
-
-	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
-	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
-
-	return &ProfilePage{
-		helpMenu:      helpMenu,
-		keys:          keys,
-		actions:       actions,
-		actionsStyle:  actionsStyle,
-		profilesStyle: profilesStyle,
-	}
-}
-
-func (p *ProfilePage) Init() tea.Cmd {
-	return nil
-}
-
-func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case ProfileStartMsg:
-		p.currentStage = newProfile
-		return p, p.getProfiles()
-	case retrieveMsg:
-		p.currentStage = listProfiles
-		p.setProfileList(msg.profiles)
-		return p, nil
-	}
-	return nil, nil
-}
-
-func (p *ProfilePage) getProfiles() tea.Cmd {
-	return func() tea.Msg {
-		return retrieveMsg{profiles: []string{"global", "stg", "prd"}}
-	}
+	p.actions = GenerateList(actionsList, renderActionItem, 15, 2)
 }
 
 func (p *ProfilePage) setProfileList(profileStrs []string) {
@@ -189,15 +185,7 @@ func (p *ProfilePage) setProfileList(profileStrs []string) {
 	for _, profileStr := range profileStrs {
 		profilesList = append(profilesList, profileItem{name: profileStr})
 	}
-	profiles := list.New(profilesList, ListItemDelegate{RenderFunc: renderProfileItem}, 15, 2)
-	profiles.SetShowTitle(false)
-	profiles.SetShowStatusBar(false)
-	profiles.SetShowFilter(false)
-	profiles.SetFilteringEnabled(false)
-	profiles.SetShowPagination(false)
-	profiles.SetShowHelp(false)
-
-	p.profiles = profiles
+	p.profiles = GenerateList(profilesList, renderProfileItem, 15, 2)
 }
 
 func (p *ProfilePage) View() string {
@@ -219,17 +207,7 @@ func (p *ProfilePage) View() string {
 			),
 		)
 	}
-	return lipgloss.Place(
-		p.width,
-		p.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		lipgloss.JoinVertical(
-			lipgloss.Center,
-			p.actionsStyle.Render(p.actions.View()),
-			p.helpMenu.View(p.keys),
-		),
-	)
+	return "profile page.."
 }
 
 func (p *ProfilePage) UpdateSize(width, height int) {

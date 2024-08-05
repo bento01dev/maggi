@@ -69,6 +69,17 @@ func (i ListItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	fmt.Fprint(w, styleFn(i.RenderFunc(listItem)))
 }
 
+func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, height int) list.Model {
+	l := list.New(items, ListItemDelegate{RenderFunc: renderFunc}, 15, 2)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)
+	l.SetShowFilter(false)
+	l.SetFilteringEnabled(false)
+	l.SetShowPagination(false)
+	l.SetShowHelp(false)
+	return l
+}
+
 type MaggiModel struct {
 	currentPage pageType
 	pages       map[pageType]Page
@@ -129,7 +140,7 @@ func (m *MaggiModel) handlePageTransition(msg PageTurner) {
 func (m *MaggiModel) pageInitCmd() tea.Cmd {
 	var msg tea.Msg
 	switch m.currentPage {
-	case start:
+	case profile:
 		msg = ProfileStartMsg{}
 	}
 	return func() tea.Msg {
