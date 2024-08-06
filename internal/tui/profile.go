@@ -32,6 +32,13 @@ const (
 	deleteProfile
 )
 
+type profilePane int
+
+const (
+	profilesListPane profilePane = iota
+	actionsListPane
+)
+
 type actionItem struct {
 	next        profileStage
 	description string
@@ -82,9 +89,12 @@ type ProfilePage struct {
 	width         int
 	height        int
 	currentStage  profileStage
-	actions       list.Model
+	activePane    profilePane
+	actions       []string
+	profiles      []string
+	actionList    list.Model
 	actionsStyle  lipgloss.Style
-	profiles      list.Model
+	profileList   list.Model
 	profilesStyle lipgloss.Style
 	helpMenu      help.Model
 	keys          profileHelpKeys
@@ -127,8 +137,8 @@ func NewProfilePage() *ProfilePage {
 			key.WithHelp("<esc>", "quit view"),
 		),
 	}
-	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
-	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Width(20).UnsetPadding()
+	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(90).UnsetPadding()
+	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(30).UnsetPadding()
 
 	return &ProfilePage{
 		helpMenu:      helpMenu,
@@ -142,6 +152,11 @@ func (p *ProfilePage) Init() tea.Cmd {
 	return nil
 }
 
+//TODO: switch action and profile style to green and muted style, green style should have thicker borders
+//TODO: width of both lists should change based on window size, 1:3 between profiles and actions
+// set 120 total width as default. 30 for profiles and 90 for actions.
+// if window size goes below 120, then keep profiles at 30, actions should get the rest.
+
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProfileStartMsg:
@@ -149,6 +164,7 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return p, p.getProfiles()
 	case retrieveMsg:
 		p.currentStage = listProfiles
+		p.activePane = profilesListPane
 		p.setActionsList()
 		p.setProfileList(msg.profiles)
 		return p, nil
@@ -163,7 +179,7 @@ func (p *ProfilePage) getProfiles() tea.Cmd {
 }
 
 func (p *ProfilePage) setActionsList() {
-	actionsList := []list.Item{
+	actionItems := []actionItem{
 		actionItem{
 			description: "Add Profile",
 			next:        newProfile,
@@ -177,7 +193,31 @@ func (p *ProfilePage) setActionsList() {
 			next:        updateProfile,
 		},
 	}
-	p.actions = GenerateList(actionsList, renderActionItem, 15, 2)
+	var elems []string
+	var actionsList []list.Item
+	for _, a := range actionItems {
+		elems = append(elems, a.description)
+		actionsList = append(actionsList, a)
+	}
+	// width := p.getMaxWidth(elems)
+
+	p.actionList = GenerateList(actionsList, renderActionItem, 50, 2)
+	switch p.activePane {
+	case profilesListPane:
+		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(muted)
+	case actionsListPane:
+		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(green)
+	}
+}
+
+func (p *ProfilePage) getItemsMaxLen(elems []string) int {
+	var width int
+	for _, elem := range elems {
+		if len(elem) >= width {
+			width = len(elem)
+		}
+	}
+	return width
 }
 
 func (p *ProfilePage) setProfileList(profileStrs []string) {
@@ -185,7 +225,13 @@ func (p *ProfilePage) setProfileList(profileStrs []string) {
 	for _, profileStr := range profileStrs {
 		profilesList = append(profilesList, profileItem{name: profileStr})
 	}
-	p.profiles = GenerateList(profilesList, renderProfileItem, 15, 2)
+	p.profileList = GenerateList(profilesList, renderProfileItem, 50, 2)
+	switch p.activePane {
+	case profilesListPane:
+		p.profilesStyle = p.profilesStyle.Copy().BorderForeground(green)
+	case actionsListPane:
+		p.profilesStyle = p.profilesStyle.Copy().BorderForeground(muted)
+	}
 }
 
 func (p *ProfilePage) View() string {
@@ -200,8 +246,8 @@ func (p *ProfilePage) View() string {
 				lipgloss.Center,
 				lipgloss.JoinHorizontal(
 					lipgloss.Center,
-					p.profilesStyle.Render(p.profiles.View()),
-					p.actionsStyle.Render(p.actions.View()),
+					p.profilesStyle.Render(p.profileList.View()),
+					p.actionsStyle.Render(p.actionList.View()),
 				),
 				p.helpMenu.View(p.keys),
 			),

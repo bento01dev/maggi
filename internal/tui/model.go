@@ -70,7 +70,7 @@ func (i ListItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 }
 
 func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, height int) list.Model {
-	l := list.New(items, ListItemDelegate{RenderFunc: renderFunc}, 15, 2)
+	l := list.New(items, ListItemDelegate{RenderFunc: renderFunc}, width, height)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetShowFilter(false)
