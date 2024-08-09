@@ -22,12 +22,19 @@ type retrieveMsg struct {
 	profiles []string
 }
 
+const (
+	defaultWidth        int = 120
+	defaultProfileWidth int = 30
+	defaultActionsWidth int = 90
+)
+
 type profileStage int
 
 const (
 	retrieveProfiles profileStage = iota
 	listProfiles
 	newProfile
+	viewProfile
 	updateProfile
 	deleteProfile
 )
@@ -54,7 +61,8 @@ func renderActionItem(i list.Item) string {
 }
 
 type profileItem struct {
-	name string
+	name   string
+	action bool
 }
 
 func (p profileItem) FilterValue() string { return "" }
@@ -139,12 +147,14 @@ func NewProfilePage() *ProfilePage {
 	}
 	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(90).UnsetPadding()
 	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(30).UnsetPadding()
+	actions := []string{"View Profile", "Update Profile", "Delete Profile"}
 
 	return &ProfilePage{
 		helpMenu:      helpMenu,
 		keys:          keys,
 		actionsStyle:  actionsStyle,
 		profilesStyle: profilesStyle,
+		actions:       actions,
 	}
 }
 
@@ -152,61 +162,32 @@ func (p *ProfilePage) Init() tea.Cmd {
 	return nil
 }
 
-//TODO: switch action and profile style to green and muted style, green style should have thicker borders
-//TODO: width of both lists should change based on window size, 1:3 between profiles and actions
-// set 120 total width as default. 30 for profiles and 90 for actions.
-// if window size goes below 120, then keep profiles at 30, actions should get the rest.
-
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProfileStartMsg:
 		p.currentStage = retrieveProfiles
 		return p, p.getProfiles()
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyTab:
+			p.handleTab()
+			return p, nil
+		}
 	case retrieveMsg:
 		p.currentStage = listProfiles
+		p.profiles = msg.profiles
 		p.activePane = profilesListPane
 		p.setActionsList()
-		p.setProfileList(msg.profiles)
+		p.setProfileList()
 		return p, nil
 	}
-	return nil, nil
+	cmd := p.handleEvent(msg)
+	return p, cmd
 }
 
 func (p *ProfilePage) getProfiles() tea.Cmd {
 	return func() tea.Msg {
 		return retrieveMsg{profiles: []string{"global", "stg", "prd"}}
-	}
-}
-
-func (p *ProfilePage) setActionsList() {
-	actionItems := []actionItem{
-		actionItem{
-			description: "Add Profile",
-			next:        newProfile,
-		},
-		actionItem{
-			description: "Delete Profile",
-			next:        deleteProfile,
-		},
-		actionItem{
-			description: "Update Profile",
-			next:        updateProfile,
-		},
-	}
-	var elems []string
-	var actionsList []list.Item
-	for _, a := range actionItems {
-		elems = append(elems, a.description)
-		actionsList = append(actionsList, a)
-	}
-	// width := p.getMaxWidth(elems)
-
-	p.actionList = GenerateList(actionsList, renderActionItem, 50, 2)
-	switch p.activePane {
-	case profilesListPane:
-		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(muted)
-	case actionsListPane:
-		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(green)
 	}
 }
 
@@ -220,18 +201,89 @@ func (p *ProfilePage) getItemsMaxLen(elems []string) int {
 	return width
 }
 
-func (p *ProfilePage) setProfileList(profileStrs []string) {
+func (p *ProfilePage) setActionsList() {
+	actionItems := []actionItem{
+		actionItem{
+			description: "View Profile",
+			next:        viewProfile,
+		},
+		actionItem{
+			description: "Update Profile",
+			next:        updateProfile,
+		},
+		actionItem{
+			description: "Delete Profile",
+			next:        deleteProfile,
+		},
+	}
+	var elems []string
+	var actionsList []list.Item
+	for _, a := range actionItems {
+		elems = append(elems, a.description)
+		actionsList = append(actionsList, a)
+	}
+	w := defaultActionsWidth
+	if p.width < defaultWidth {
+		w = p.width - defaultProfileWidth
+	}
+
+	h := len(actionsList)
+	if (len(p.profiles) + 1) > h {
+		h = len(p.profiles) + 1
+	}
+
+	p.actionList = GenerateList(actionsList, renderActionItem, w, h)
+	p.updateActionStyle()
+}
+
+func (p *ProfilePage) setProfileList() {
 	profilesList := []list.Item{}
-	for _, profileStr := range profileStrs {
+	for _, profileStr := range p.profiles {
 		profilesList = append(profilesList, profileItem{name: profileStr})
 	}
-	p.profileList = GenerateList(profilesList, renderProfileItem, 50, 2)
+	profilesList = append(profilesList, profileItem{name: "Add Profile...", action: true})
+	p.profileList = GenerateList(profilesList, renderProfileItem, 30, len(profilesList))
+	p.updateProfileStyle()
+}
+
+func (p *ProfilePage) updateActionStyle() {
+	switch p.activePane {
+	case profilesListPane:
+		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(muted)
+	case actionsListPane:
+		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(green)
+	}
+}
+
+func (p *ProfilePage) updateProfileStyle() {
 	switch p.activePane {
 	case profilesListPane:
 		p.profilesStyle = p.profilesStyle.Copy().BorderForeground(green)
 	case actionsListPane:
 		p.profilesStyle = p.profilesStyle.Copy().BorderForeground(muted)
 	}
+}
+
+func (p *ProfilePage) handleTab() {
+	switch p.activePane {
+	case profilesListPane:
+		p.activePane = actionsListPane
+	case actionsListPane:
+		p.activePane = profilesListPane
+	}
+	p.updateActionStyle()
+	p.updateProfileStyle()
+}
+
+func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	switch p.activePane {
+	case profilesListPane:
+		p.profileList, cmd = p.profileList.Update(msg)
+	case actionsListPane:
+		p.actionList, cmd = p.actionList.Update(msg)
+	}
+	return cmd
 }
 
 func (p *ProfilePage) View() string {
