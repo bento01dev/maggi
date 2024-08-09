@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -94,18 +96,20 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 }
 
 type ProfilePage struct {
-	width         int
-	height        int
-	currentStage  profileStage
-	activePane    profilePane
-	actions       []string
-	profiles      []string
-	actionList    list.Model
-	actionsStyle  lipgloss.Style
-	profileList   list.Model
-	profilesStyle lipgloss.Style
-	helpMenu      help.Model
-	keys          profileHelpKeys
+	newProfileOption bool
+	width            int
+	height           int
+	currentStage     profileStage
+	activePane       profilePane
+	actions          []string
+	profiles         []string
+	actionList       list.Model
+	actionsStyle     lipgloss.Style
+	profileList      list.Model
+	profilesStyle    lipgloss.Style
+	helpMenu         help.Model
+	keys             profileHelpKeys
+	titleStyle       lipgloss.Style
 }
 
 func NewProfilePage() *ProfilePage {
@@ -148,6 +152,7 @@ func NewProfilePage() *ProfilePage {
 	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(90).UnsetPadding()
 	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(30).UnsetPadding()
 	actions := []string{"View Profile", "Update Profile", "Delete Profile"}
+	titleStyle := lipgloss.NewStyle().Foreground(green)
 
 	return &ProfilePage{
 		helpMenu:      helpMenu,
@@ -155,6 +160,7 @@ func NewProfilePage() *ProfilePage {
 		actionsStyle:  actionsStyle,
 		profilesStyle: profilesStyle,
 		actions:       actions,
+		titleStyle:    titleStyle,
 	}
 }
 
@@ -280,15 +286,55 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 	switch p.activePane {
 	case profilesListPane:
 		p.profileList, cmd = p.profileList.Update(msg)
+		item, ok := p.profileList.SelectedItem().(profileItem)
+		if !ok {
+			return tea.Quit
+		}
+		if item.action {
+			p.newProfileOption = true
+		} else {
+			p.newProfileOption = false
+		}
 	case actionsListPane:
 		p.actionList, cmd = p.actionList.Update(msg)
 	}
 	return cmd
 }
 
+func (p *ProfilePage) generateTitle() string {
+	first := strings.Repeat("-", 3)
+	var second string
+	switch p.currentStage {
+	case listProfiles:
+		second = " Profiles "
+	case newProfile:
+		second = " New Profile "
+	}
+	third := strings.Repeat("-", (defaultWidth - (len(second) + 3)))
+	return first + second + third
+}
+
 func (p *ProfilePage) View() string {
 	switch p.currentStage {
 	case listProfiles:
+		if p.newProfileOption {
+			return lipgloss.Place(
+				p.width,
+				p.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					p.titleStyle.Render(p.generateTitle()),
+					lipgloss.JoinHorizontal(
+						lipgloss.Center,
+						p.profilesStyle.Render(p.profileList.View()),
+						p.actionsStyle.Copy().Height(len(p.profiles)+1).Render(""),
+					),
+					p.helpMenu.View(p.keys),
+				),
+			)
+		}
 		return lipgloss.Place(
 			p.width,
 			p.height,
@@ -296,6 +342,7 @@ func (p *ProfilePage) View() string {
 			lipgloss.Center,
 			lipgloss.JoinVertical(
 				lipgloss.Center,
+				p.titleStyle.Render(p.generateTitle()),
 				lipgloss.JoinHorizontal(
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
