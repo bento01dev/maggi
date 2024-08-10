@@ -1,11 +1,13 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -35,6 +37,7 @@ type profileStage int
 const (
 	retrieveProfiles profileStage = iota
 	listProfiles
+	chooseAction
 	newProfile
 	viewProfile
 	updateProfile
@@ -101,6 +104,7 @@ type ProfilePage struct {
 	height           int
 	currentStage     profileStage
 	activePane       profilePane
+	currentProfile   string
 	actions          []string
 	profiles         []string
 	actionList       list.Model
@@ -110,6 +114,8 @@ type ProfilePage struct {
 	helpMenu         help.Model
 	keys             profileHelpKeys
 	titleStyle       lipgloss.Style
+	headingStyle     lipgloss.Style
+	textInput        textinput.Model
 }
 
 func NewProfilePage() *ProfilePage {
@@ -153,6 +159,13 @@ func NewProfilePage() *ProfilePage {
 	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(30).UnsetPadding()
 	actions := []string{"View Profile", "Update Profile", "Delete Profile"}
 	titleStyle := lipgloss.NewStyle().Foreground(green)
+	headingStyle := lipgloss.NewStyle().Foreground(blue)
+
+	input := textinput.New()
+	input.Placeholder = "Your new profile name.."
+	input.CharLimit = 50
+	input.Width = 50
+	input.Prompt = ""
 
 	return &ProfilePage{
 		helpMenu:      helpMenu,
@@ -161,12 +174,18 @@ func NewProfilePage() *ProfilePage {
 		profilesStyle: profilesStyle,
 		actions:       actions,
 		titleStyle:    titleStyle,
+		headingStyle:  headingStyle,
+		textInput:     input,
 	}
 }
 
 func (p *ProfilePage) Init() tea.Cmd {
 	return nil
 }
+
+//TODO: handle enter. do for each stage and pane combo
+//TODO: figure out height
+//TODO: default list when no profiles
 
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -178,6 +197,8 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyTab:
 			p.handleTab()
 			return p, nil
+		case tea.KeyEnter:
+			return p, p.handleEnter()
 		}
 	case retrieveMsg:
 		p.currentStage = listProfiles
@@ -193,7 +214,7 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (p *ProfilePage) getProfiles() tea.Cmd {
 	return func() tea.Msg {
-		return retrieveMsg{profiles: []string{"global", "stg", "prd"}}
+		return retrieveMsg{profiles: []string{"global", "stg", "prd", "dev"}}
 	}
 }
 
@@ -281,6 +302,62 @@ func (p *ProfilePage) handleTab() {
 	p.updateProfileStyle()
 }
 
+func (p *ProfilePage) handleEnter() tea.Cmd {
+	switch p.currentStage {
+	case listProfiles:
+		return p.handleListProfilesEnter()
+	case newProfile:
+		return p.handleNewProfileEnter()
+	case viewProfile:
+		return p.handleViewProfileEnter()
+	case updateProfile:
+		return p.handleUpdateProfileEnter()
+	case deleteProfile:
+		return p.handleDeleteProfileEnter()
+	default:
+		return nil
+	}
+}
+
+func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
+	switch p.activePane {
+	case profilesListPane:
+		item, ok := p.profileList.SelectedItem().(profileItem)
+		if !ok {
+			return func() tea.Msg {
+				return errors.New("item not found in list. unknown issue")
+			}
+		}
+		p.activePane = actionsListPane
+		p.updateActionStyle()
+		p.updateProfileStyle()
+		if item.action {
+			p.currentStage = newProfile
+			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
+		}
+		p.currentStage = chooseAction
+		p.currentProfile = item.name
+		return nil
+	}
+	return nil
+}
+
+func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
+	return nil
+}
+
+func (p *ProfilePage) handleViewProfileEnter() tea.Cmd {
+	return nil
+}
+
+func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
+	return nil
+}
+
+func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
+	return nil
+}
+
 func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch p.activePane {
@@ -294,9 +371,15 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 			p.newProfileOption = true
 		} else {
 			p.newProfileOption = false
+			p.currentStage = listProfiles
 		}
 	case actionsListPane:
-		p.actionList, cmd = p.actionList.Update(msg)
+		switch p.currentStage {
+		case chooseAction:
+			p.actionList, cmd = p.actionList.Update(msg)
+		case newProfile:
+			p.textInput, cmd = p.textInput.Update(msg)
+		}
 	}
 	return cmd
 }
@@ -316,7 +399,7 @@ func (p *ProfilePage) generateTitle() string {
 
 func (p *ProfilePage) View() string {
 	switch p.currentStage {
-	case listProfiles:
+	case listProfiles, chooseAction:
 		if p.newProfileOption {
 			return lipgloss.Place(
 				p.width,
@@ -347,6 +430,27 @@ func (p *ProfilePage) View() string {
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
 					p.actionsStyle.Render(p.actionList.View()),
+				),
+				p.helpMenu.View(p.keys),
+			),
+		)
+	case newProfile:
+		return lipgloss.Place(
+			p.width,
+			p.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				p.titleStyle.Render(p.generateTitle()),
+				lipgloss.JoinHorizontal(
+					lipgloss.Center,
+					p.profilesStyle.Render(p.profileList.View()),
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						p.headingStyle.Render("Name:"),
+						p.actionsStyle.Render(p.textInput.View()),
+					),
 				),
 				p.helpMenu.View(p.keys),
 			),
