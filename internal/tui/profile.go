@@ -447,7 +447,7 @@ func (p *ProfilePage) View() string {
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
 					lipgloss.JoinVertical(
-						lipgloss.Left,
+						lipgloss.Center,
 						p.headingStyle.Render("Name:"),
 						p.actionsStyle.Render(p.textInput.View()),
 					),
