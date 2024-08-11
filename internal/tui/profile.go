@@ -37,7 +37,6 @@ type profileUserFlow int
 const (
 	retrieveProfiles profileUserFlow = iota
 	listProfiles
-	chooseAction
 	newProfile
 	viewProfile
 	updateProfile
@@ -55,6 +54,7 @@ type profileStage int
 
 const (
 	profileStageDefault profileStage = iota
+	chooseAction
 	addProfileName
 	addProfileConfirm
 	updateProfileName
@@ -211,6 +211,9 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return p, nil
 		case tea.KeyEnter:
 			return p, p.handleEnter()
+		case tea.KeyEsc:
+			p.handleEsc()
+			return p, nil
 		}
 	case retrieveMsg:
 		p.currentUserFlow = listProfiles
@@ -347,7 +350,6 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 			p.currentUserFlow = newProfile
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
-		p.currentUserFlow = chooseAction
 		p.currentProfile = item.name
 		return nil
 	}
@@ -376,6 +378,14 @@ func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
 	return nil
 }
 
+func (p *ProfilePage) handleEsc() {
+	p.currentUserFlow = listProfiles
+	p.activePane = profilesListPane
+	p.updateActionStyle()
+	p.updateProfileStyle()
+	p.textInput.SetValue("")
+}
+
 func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch p.activePane {
@@ -393,7 +403,7 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 		}
 	case actionsListPane:
 		switch p.currentUserFlow {
-		case chooseAction:
+		case listProfiles:
 			p.actionList, cmd = p.actionList.Update(msg)
 		case newProfile:
 			p.textInput, cmd = p.textInput.Update(msg)
@@ -406,7 +416,7 @@ func (p *ProfilePage) generateTitle() string {
 	first := strings.Repeat("-", 3)
 	var second string
 	switch p.currentUserFlow {
-	case listProfiles, chooseAction:
+	case listProfiles:
 		second = " Profiles "
 	case newProfile:
 		second = " New Profile "
@@ -417,7 +427,7 @@ func (p *ProfilePage) generateTitle() string {
 
 func (p *ProfilePage) View() string {
 	switch p.currentUserFlow {
-	case listProfiles, chooseAction:
+	case listProfiles:
 		if p.newProfileOption {
 			return lipgloss.Place(
 				p.width,
@@ -465,7 +475,7 @@ func (p *ProfilePage) View() string {
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
 					lipgloss.JoinVertical(
-						lipgloss.Center,
+						lipgloss.Left,
 						p.headingStyle.Render("Name:"),
 						p.actionsStyle.Render(p.textInput.View()),
 					),
