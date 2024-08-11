@@ -32,10 +32,10 @@ const (
 	defaultActionsWidth int = 90
 )
 
-type profileStage int
+type profileUserFlow int
 
 const (
-	retrieveProfiles profileStage = iota
+	retrieveProfiles profileUserFlow = iota
 	listProfiles
 	chooseAction
 	newProfile
@@ -51,8 +51,19 @@ const (
 	actionsListPane
 )
 
+type profileStage int
+
+const (
+	profileStageDefault profileStage = iota
+	addProfileName
+	addProfileConfirm
+	updateProfileName
+	updateProfileConfirm
+	deleteProfileConfirm
+)
+
 type actionItem struct {
-	next        profileStage
+	next        profileUserFlow
 	description string
 }
 
@@ -102,8 +113,9 @@ type ProfilePage struct {
 	newProfileOption bool
 	width            int
 	height           int
-	currentStage     profileStage
+	currentUserFlow  profileUserFlow
 	activePane       profilePane
+	currentStage     profileStage
 	currentProfile   string
 	actions          []string
 	profiles         []string
@@ -190,7 +202,7 @@ func (p *ProfilePage) Init() tea.Cmd {
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProfileStartMsg:
-		p.currentStage = retrieveProfiles
+		p.currentUserFlow = retrieveProfiles
 		return p, p.getProfiles()
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -201,7 +213,7 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return p, p.handleEnter()
 		}
 	case retrieveMsg:
-		p.currentStage = listProfiles
+		p.currentUserFlow = listProfiles
 		p.profiles = msg.profiles
 		p.activePane = profilesListPane
 		p.setActionsList()
@@ -303,7 +315,7 @@ func (p *ProfilePage) handleTab() {
 }
 
 func (p *ProfilePage) handleEnter() tea.Cmd {
-	switch p.currentStage {
+	switch p.currentUserFlow {
 	case listProfiles:
 		return p.handleListProfilesEnter()
 	case newProfile:
@@ -332,10 +344,10 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 		p.updateActionStyle()
 		p.updateProfileStyle()
 		if item.action {
-			p.currentStage = newProfile
+			p.currentUserFlow = newProfile
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
-		p.currentStage = chooseAction
+		p.currentUserFlow = chooseAction
 		p.currentProfile = item.name
 		return nil
 	}
@@ -347,7 +359,13 @@ func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
 }
 
 func (p *ProfilePage) handleViewProfileEnter() tea.Cmd {
-	return nil
+	return func() tea.Msg {
+		item, ok := p.profileList.SelectedItem().(profileItem)
+		if !ok {
+			return errors.New("unknown item in list")
+		}
+		return ProfileDoneMsg{profile: item.name}
+	}
 }
 
 func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
@@ -371,10 +389,10 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 			p.newProfileOption = true
 		} else {
 			p.newProfileOption = false
-			p.currentStage = listProfiles
+			p.currentUserFlow = listProfiles
 		}
 	case actionsListPane:
-		switch p.currentStage {
+		switch p.currentUserFlow {
 		case chooseAction:
 			p.actionList, cmd = p.actionList.Update(msg)
 		case newProfile:
@@ -387,8 +405,8 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 func (p *ProfilePage) generateTitle() string {
 	first := strings.Repeat("-", 3)
 	var second string
-	switch p.currentStage {
-	case listProfiles:
+	switch p.currentUserFlow {
+	case listProfiles, chooseAction:
 		second = " Profiles "
 	case newProfile:
 		second = " New Profile "
@@ -398,7 +416,7 @@ func (p *ProfilePage) generateTitle() string {
 }
 
 func (p *ProfilePage) View() string {
-	switch p.currentStage {
+	switch p.currentUserFlow {
 	case listProfiles, chooseAction:
 		if p.newProfileOption {
 			return lipgloss.Place(
