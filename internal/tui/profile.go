@@ -32,6 +32,11 @@ const (
 	defaultActionsWidth int = 90
 )
 
+const (
+	buttonPaddingHorizontal int = 2
+	buttonPaddingVertical   int = 0
+)
+
 type profileUserFlow int
 
 const (
@@ -43,11 +48,11 @@ const (
 	deleteProfile
 )
 
-type profilePane int
+type profilePagePane int
 
 const (
-	profilesListPane profilePane = iota
-	actionsListPane
+	profilesPane profilePagePane = iota
+	actionsPane
 )
 
 type profileStage int
@@ -110,24 +115,26 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 }
 
 type ProfilePage struct {
-	newProfileOption bool
-	width            int
-	height           int
-	currentUserFlow  profileUserFlow
-	activePane       profilePane
-	currentStage     profileStage
-	currentProfile   string
-	actions          []string
-	profiles         []string
-	actionList       list.Model
-	actionsStyle     lipgloss.Style
-	profileList      list.Model
-	profilesStyle    lipgloss.Style
-	helpMenu         help.Model
-	keys             profileHelpKeys
-	titleStyle       lipgloss.Style
-	headingStyle     lipgloss.Style
-	textInput        textinput.Model
+	newProfileOption  bool
+	width             int
+	height            int
+	currentUserFlow   profileUserFlow
+	activePane        profilePagePane
+	currentStage      profileStage
+	currentProfile    string
+	actions           []string
+	profiles          []string
+	actionList        list.Model
+	actionsStyle      lipgloss.Style
+	profileList       list.Model
+	profilesStyle     lipgloss.Style
+	helpMenu          help.Model
+	keys              profileHelpKeys
+	titleStyle        lipgloss.Style
+	headingStyle      lipgloss.Style
+	textInput         textinput.Model
+	highlightedButton lipgloss.Style
+	mutedButton       lipgloss.Style
 }
 
 func NewProfilePage() *ProfilePage {
@@ -179,15 +186,21 @@ func NewProfilePage() *ProfilePage {
 	input.Width = 50
 	input.Prompt = ""
 
+	baseButton := lipgloss.NewStyle().Padding(buttonPaddingVertical, buttonPaddingHorizontal).MarginLeft(1).Foreground(lipgloss.Color("0"))
+	confirmButton := baseButton.Copy().Background(green)
+	cancelButton := baseButton.Copy().Background(muted)
+
 	return &ProfilePage{
-		helpMenu:      helpMenu,
-		keys:          keys,
-		actionsStyle:  actionsStyle,
-		profilesStyle: profilesStyle,
-		actions:       actions,
-		titleStyle:    titleStyle,
-		headingStyle:  headingStyle,
-		textInput:     input,
+		helpMenu:          helpMenu,
+		keys:              keys,
+		actionsStyle:      actionsStyle,
+		profilesStyle:     profilesStyle,
+		actions:           actions,
+		titleStyle:        titleStyle,
+		headingStyle:      headingStyle,
+		textInput:         input,
+		highlightedButton: confirmButton,
+		mutedButton:       cancelButton,
 	}
 }
 
@@ -218,7 +231,7 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case retrieveMsg:
 		p.currentUserFlow = listProfiles
 		p.profiles = msg.profiles
-		p.activePane = profilesListPane
+		p.activePane = profilesPane
 		p.setActionsList()
 		p.setProfileList()
 		return p, nil
@@ -290,28 +303,28 @@ func (p *ProfilePage) setProfileList() {
 
 func (p *ProfilePage) updateActionStyle() {
 	switch p.activePane {
-	case profilesListPane:
+	case profilesPane:
 		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(muted)
-	case actionsListPane:
+	case actionsPane:
 		p.actionsStyle = p.actionsStyle.Copy().BorderForeground(green)
 	}
 }
 
 func (p *ProfilePage) updateProfileStyle() {
 	switch p.activePane {
-	case profilesListPane:
+	case profilesPane:
 		p.profilesStyle = p.profilesStyle.Copy().BorderForeground(green)
-	case actionsListPane:
+	case actionsPane:
 		p.profilesStyle = p.profilesStyle.Copy().BorderForeground(muted)
 	}
 }
 
 func (p *ProfilePage) handleTab() {
 	switch p.activePane {
-	case profilesListPane:
-		p.activePane = actionsListPane
-	case actionsListPane:
-		p.activePane = profilesListPane
+	case profilesPane:
+		p.activePane = actionsPane
+	case actionsPane:
+		p.activePane = profilesPane
 	}
 	p.updateActionStyle()
 	p.updateProfileStyle()
@@ -336,14 +349,14 @@ func (p *ProfilePage) handleEnter() tea.Cmd {
 
 func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 	switch p.activePane {
-	case profilesListPane:
+	case profilesPane:
 		item, ok := p.profileList.SelectedItem().(profileItem)
 		if !ok {
 			return func() tea.Msg {
 				return errors.New("item not found in list. unknown issue")
 			}
 		}
-		p.activePane = actionsListPane
+		p.activePane = actionsPane
 		p.updateActionStyle()
 		p.updateProfileStyle()
 		if item.action {
@@ -380,7 +393,7 @@ func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
 
 func (p *ProfilePage) handleEsc() {
 	p.currentUserFlow = listProfiles
-	p.activePane = profilesListPane
+	p.activePane = profilesPane
 	p.updateActionStyle()
 	p.updateProfileStyle()
 	p.textInput.SetValue("")
@@ -389,7 +402,7 @@ func (p *ProfilePage) handleEsc() {
 func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch p.activePane {
-	case profilesListPane:
+	case profilesPane:
 		p.profileList, cmd = p.profileList.Update(msg)
 		item, ok := p.profileList.SelectedItem().(profileItem)
 		if !ok {
@@ -401,7 +414,7 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 			p.newProfileOption = false
 			p.currentUserFlow = listProfiles
 		}
-	case actionsListPane:
+	case actionsPane:
 		switch p.currentUserFlow {
 		case listProfiles:
 			p.actionList, cmd = p.actionList.Update(msg)
@@ -423,6 +436,61 @@ func (p *ProfilePage) generateTitle() string {
 	}
 	third := strings.Repeat("-", (defaultWidth - (len(second) + 3)))
 	return first + second + third
+}
+
+func (p *ProfilePage) viewNewProfile() string {
+	if p.textInput.Value() == "" {
+		return lipgloss.Place(
+			p.width,
+			p.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				p.titleStyle.Render(p.generateTitle()),
+				lipgloss.JoinHorizontal(
+					lipgloss.Center,
+					p.profilesStyle.Render(p.profileList.View()),
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						p.headingStyle.Render("Name:"),
+						p.actionsStyle.Render(p.textInput.View()),
+						lipgloss.JoinHorizontal(
+							lipgloss.Center,
+							p.mutedButton.Render("Create"),
+							p.mutedButton.Render("Cancel"),
+						),
+					),
+				),
+				p.helpMenu.View(p.keys),
+			),
+		)
+	}
+	return lipgloss.Place(
+		p.width,
+		p.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			p.titleStyle.Render(p.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Center,
+				p.profilesStyle.Render(p.profileList.View()),
+				lipgloss.JoinVertical(
+					lipgloss.Left,
+					p.headingStyle.Render("Name:"),
+					p.actionsStyle.Render(p.textInput.View()),
+					lipgloss.JoinHorizontal(
+						lipgloss.Center,
+						p.highlightedButton.Render("Create"),
+						p.mutedButton.Render("Cancel"),
+					),
+				),
+			),
+			p.helpMenu.View(p.keys),
+		),
+	)
 }
 
 func (p *ProfilePage) View() string {
@@ -463,26 +531,7 @@ func (p *ProfilePage) View() string {
 			),
 		)
 	case newProfile:
-		return lipgloss.Place(
-			p.width,
-			p.height,
-			lipgloss.Center,
-			lipgloss.Center,
-			lipgloss.JoinVertical(
-				lipgloss.Center,
-				p.titleStyle.Render(p.generateTitle()),
-				lipgloss.JoinHorizontal(
-					lipgloss.Center,
-					p.profilesStyle.Render(p.profileList.View()),
-					lipgloss.JoinVertical(
-						lipgloss.Left,
-						p.headingStyle.Render("Name:"),
-						p.actionsStyle.Render(p.textInput.View()),
-					),
-				),
-				p.helpMenu.View(p.keys),
-			),
-		)
+		return p.viewNewProfile()
 	}
 	return "profile page.."
 }
