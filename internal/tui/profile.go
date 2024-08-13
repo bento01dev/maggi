@@ -222,6 +222,9 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyTab:
 			p.handleTab()
 			return p, nil
+		case tea.KeyShiftTab:
+			p.handleShiftTab()
+			return p, nil
 		case tea.KeyEnter:
 			return p, p.handleEnter()
 		case tea.KeyEsc:
@@ -320,6 +323,17 @@ func (p *ProfilePage) updateProfileStyle() {
 }
 
 func (p *ProfilePage) handleTab() {
+	switch p.activePane {
+	case profilesPane:
+		p.activePane = actionsPane
+	case actionsPane:
+		p.activePane = profilesPane
+	}
+	p.updateActionStyle()
+	p.updateProfileStyle()
+}
+
+func (p *ProfilePage) handleShiftTab() {
 	switch p.activePane {
 	case profilesPane:
 		p.activePane = actionsPane
