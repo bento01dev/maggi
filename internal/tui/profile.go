@@ -221,10 +221,10 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
-			p.handleTab()
+			p.handleTab(false)
 			return p, nil
 		case tea.KeyShiftTab:
-			p.handleShiftTab()
+			p.handleTab(true)
 			return p, nil
 		case tea.KeyEnter:
 			return p, p.handleEnter()
@@ -323,12 +323,12 @@ func (p *ProfilePage) updateProfileStyle() {
 	}
 }
 
-func (p *ProfilePage) handleTab() {
+func (p *ProfilePage) handleTab(shift bool) {
 	switch p.currentUserFlow {
 	case listProfiles:
 		p.handleListProfilesTab()
 	case newProfile:
-		p.handleNewProfileTab()
+		p.handleNewProfileTab(shift)
 	case updateProfile:
 		p.handleUpdateProfileTab()
 	case deleteProfile:
@@ -347,7 +347,23 @@ func (p *ProfilePage) handleListProfilesTab() {
 	}
 }
 
-func (p *ProfilePage) handleNewProfileTab() {
+func (p *ProfilePage) handleNewProfileTab(shift bool) {
+	if shift {
+		switch p.activePane {
+		case profilesPane:
+			p.activePane = actionsPane
+		case actionsPane:
+			switch p.currentStage {
+			case addProfileName:
+				p.activePane = profilesPane
+			case addProfileConfirm:
+				p.currentStage = addProfileName
+			case addProfileCancel:
+				p.currentStage = addProfileConfirm
+			}
+		}
+		return
+	}
 	switch p.activePane {
 	case profilesPane:
 		p.activePane = actionsPane
@@ -368,17 +384,6 @@ func (p *ProfilePage) handleUpdateProfileTab() {
 }
 
 func (p *ProfilePage) handleDeleteProfileTab() {
-}
-
-func (p *ProfilePage) handleShiftTab() {
-	switch p.activePane {
-	case profilesPane:
-		p.activePane = actionsPane
-	case actionsPane:
-		p.activePane = profilesPane
-	}
-	p.updateActionStyle()
-	p.updateProfileStyle()
 }
 
 func (p *ProfilePage) handleEnter() tea.Cmd {
