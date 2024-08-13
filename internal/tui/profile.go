@@ -62,6 +62,7 @@ const (
 	chooseAction
 	addProfileName
 	addProfileConfirm
+	addProfileCancel
 	updateProfileName
 	updateProfileConfirm
 	deleteProfileConfirm
@@ -323,14 +324,50 @@ func (p *ProfilePage) updateProfileStyle() {
 }
 
 func (p *ProfilePage) handleTab() {
+	switch p.currentUserFlow {
+	case listProfiles:
+		p.handleListProfilesTab()
+	case newProfile:
+		p.handleNewProfileTab()
+	case updateProfile:
+		p.handleUpdateProfileTab()
+	case deleteProfile:
+		p.handleDeleteProfileTab()
+	}
+	p.updateActionStyle()
+	p.updateProfileStyle()
+}
+
+func (p *ProfilePage) handleListProfilesTab() {
 	switch p.activePane {
 	case profilesPane:
 		p.activePane = actionsPane
 	case actionsPane:
 		p.activePane = profilesPane
 	}
-	p.updateActionStyle()
-	p.updateProfileStyle()
+}
+
+func (p *ProfilePage) handleNewProfileTab() {
+	switch p.activePane {
+	case profilesPane:
+		p.activePane = actionsPane
+	case actionsPane:
+		switch p.currentStage {
+		case addProfileName:
+			p.currentStage = addProfileConfirm
+		case addProfileConfirm:
+			p.currentStage = addProfileCancel
+		case addProfileCancel:
+			p.currentStage = addProfileName
+			p.activePane = profilesPane
+		}
+	}
+}
+
+func (p *ProfilePage) handleUpdateProfileTab() {
+}
+
+func (p *ProfilePage) handleDeleteProfileTab() {
 }
 
 func (p *ProfilePage) handleShiftTab() {
@@ -375,6 +412,7 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 		p.updateProfileStyle()
 		if item.action {
 			p.currentUserFlow = newProfile
+			p.currentStage = addProfileName
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
 		p.currentProfile = item.name
@@ -453,33 +491,29 @@ func (p *ProfilePage) generateTitle() string {
 }
 
 func (p *ProfilePage) viewNewProfile() string {
-	if p.textInput.Value() == "" {
-		return lipgloss.Place(
-			p.width,
-			p.height,
-			lipgloss.Center,
-			lipgloss.Center,
-			lipgloss.JoinVertical(
-				lipgloss.Center,
-				p.titleStyle.Render(p.generateTitle()),
-				lipgloss.JoinHorizontal(
-					lipgloss.Center,
-					p.profilesStyle.Render(p.profileList.View()),
-					lipgloss.JoinVertical(
-						lipgloss.Left,
-						p.headingStyle.Render("Name:"),
-						p.actionsStyle.Render(p.textInput.View()),
-						lipgloss.JoinHorizontal(
-							lipgloss.Center,
-							p.mutedButton.Render("Create"),
-							p.mutedButton.Render("Cancel"),
-						),
-					),
-				),
-				p.helpMenu.View(p.keys),
-			),
-		)
+	var textInputStyle, confirmButtonStyle, cancelButtonStyle lipgloss.Style
+
+	switch p.currentStage {
+	case addProfileName:
+		textInputStyle = p.actionsStyle.Copy()
+		confirmButtonStyle = p.mutedButton.Copy()
+		if p.textInput.Value() != "" {
+			confirmButtonStyle = p.highlightedButton.Copy()
+		}
+		cancelButtonStyle = p.mutedButton.Copy()
+	case addProfileConfirm:
+		textInputStyle = p.actionsStyle.BorderForeground(muted)
+		confirmButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
+		if p.textInput.Value() == "" {
+			confirmButtonStyle = p.mutedButton.Copy()
+		}
+		cancelButtonStyle = p.mutedButton.Copy()
+	case addProfileCancel:
+		textInputStyle = p.actionsStyle.BorderForeground(muted)
+		confirmButtonStyle = p.mutedButton.Copy()
+		cancelButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
 	}
+
 	return lipgloss.Place(
 		p.width,
 		p.height,
@@ -494,11 +528,11 @@ func (p *ProfilePage) viewNewProfile() string {
 				lipgloss.JoinVertical(
 					lipgloss.Left,
 					p.headingStyle.Render("Name:"),
-					p.actionsStyle.Render(p.textInput.View()),
+					textInputStyle.Render(p.textInput.View()),
 					lipgloss.JoinHorizontal(
 						lipgloss.Center,
-						p.highlightedButton.Render("Create"),
-						p.mutedButton.Render("Cancel"),
+						confirmButtonStyle.Render("Create"),
+						cancelButtonStyle.Render("Cancel"),
 					),
 				),
 			),
