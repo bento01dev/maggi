@@ -490,6 +490,7 @@ func (p *ProfilePage) handleEsc() {
 	p.updateActionStyle()
 	p.updateProfileStyle()
 	p.textInput.SetValue("")
+	p.issueMsg = ""
 }
 
 func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
