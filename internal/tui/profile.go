@@ -2,6 +2,8 @@ package tui
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -123,6 +125,7 @@ type ProfilePage struct {
 	activePane        profilePagePane
 	currentStage      profileStage
 	currentProfile    string
+	issueMsg          string
 	actions           []string
 	profiles          []string
 	actionList        list.Model
@@ -136,6 +139,7 @@ type ProfilePage struct {
 	textInput         textinput.Model
 	highlightedButton lipgloss.Style
 	mutedButton       lipgloss.Style
+	issuesStyle       lipgloss.Style
 }
 
 func NewProfilePage() *ProfilePage {
@@ -177,6 +181,7 @@ func NewProfilePage() *ProfilePage {
 	}
 	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(90).UnsetPadding()
 	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(30).UnsetPadding()
+	issuesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).UnsetPadding().BorderForeground(red)
 	actions := []string{"View Profile", "Update Profile", "Delete Profile"}
 	titleStyle := lipgloss.NewStyle().Foreground(green)
 	headingStyle := lipgloss.NewStyle().Foreground(blue)
@@ -199,6 +204,7 @@ func NewProfilePage() *ProfilePage {
 		actions:           actions,
 		titleStyle:        titleStyle,
 		headingStyle:      headingStyle,
+		issuesStyle:       issuesStyle,
 		textInput:         input,
 		highlightedButton: confirmButton,
 		mutedButton:       cancelButton,
@@ -258,6 +264,10 @@ func (p *ProfilePage) getItemsMaxLen(elems []string) int {
 		}
 	}
 	return width
+}
+
+func (p *ProfilePage) checkDuplicate(name string) bool {
+	return slices.Contains(p.profiles, name)
 }
 
 func (p *ProfilePage) setActionsList() {
@@ -427,6 +437,32 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 }
 
 func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
+	switch p.currentStage {
+	case addProfileName:
+		if p.issueMsg != "" {
+			p.issueMsg = ""
+		}
+		p.currentStage = addProfileConfirm
+		return nil
+	case addProfileConfirm:
+		name := strings.TrimSpace(p.textInput.Value())
+		if p.checkDuplicate(name) {
+			p.issueMsg = fmt.Sprintf("The name %s is already taken. Try another name or update the existing one first!", name)
+			p.textInput.SetValue("")
+			p.currentStage = addProfileName
+			p.issuesStyle = p.issuesStyle.Copy().Width(len(p.issueMsg) + 1)
+			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
+		}
+		return nil
+	case addProfileCancel:
+		p.currentStage = chooseAction
+		p.textInput.SetValue("")
+		p.currentUserFlow = listProfiles
+		p.activePane = profilesPane
+		p.updateActionStyle()
+		p.updateProfileStyle()
+		return nil
+	}
 	return nil
 }
 
@@ -517,6 +553,35 @@ func (p *ProfilePage) viewNewProfile() string {
 		textInputStyle = p.actionsStyle.BorderForeground(muted)
 		confirmButtonStyle = p.mutedButton.Copy()
 		cancelButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
+	}
+
+	if p.issueMsg != "" {
+		return lipgloss.Place(
+			p.width,
+			p.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				p.titleStyle.Render(p.generateTitle()),
+				p.issuesStyle.Render(p.issueMsg),
+				lipgloss.JoinHorizontal(
+					lipgloss.Center,
+					p.profilesStyle.Render(p.profileList.View()),
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						p.headingStyle.Render("Name:"),
+						textInputStyle.Render(p.textInput.View()),
+						lipgloss.JoinHorizontal(
+							lipgloss.Center,
+							confirmButtonStyle.Render("Create"),
+							cancelButtonStyle.Render("Cancel"),
+						),
+					),
+				),
+				p.helpMenu.View(p.keys),
+			),
+		)
 	}
 
 	return lipgloss.Place(
