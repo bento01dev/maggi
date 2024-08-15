@@ -28,6 +28,10 @@ type retrieveMsg struct {
 	profiles []string
 }
 
+type profileAddMsg struct {
+	success bool
+}
+
 const (
 	defaultWidth        int = 120
 	defaultProfileWidth int = 30
@@ -119,13 +123,15 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 
 type ProfilePage struct {
 	newProfileOption  bool
+	infoFlag          bool
+	isErrInfo         bool
 	width             int
 	height            int
 	currentUserFlow   profileUserFlow
 	activePane        profilePagePane
 	currentStage      profileStage
 	currentProfile    string
-	issueMsg          string
+	infoMsg           string
 	actions           []string
 	profiles          []string
 	actionList        list.Model
@@ -223,7 +229,9 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProfileStartMsg:
 		p.currentUserFlow = retrieveProfiles
-		return p, p.getProfiles()
+		return p, func() tea.Msg {
+			return p.getProfiles()
+		}
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
@@ -250,10 +258,20 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return p, cmd
 }
 
-func (p *ProfilePage) getProfiles() tea.Cmd {
-	return func() tea.Msg {
-		return retrieveMsg{profiles: []string{"global", "stg", "prd", "dev"}}
-	}
+func (p *ProfilePage) resetInfoBag() {
+	p.infoFlag = false
+	p.isErrInfo = false
+	p.infoMsg = ""
+}
+
+func (p *ProfilePage) getProfiles() retrieveMsg {
+	return retrieveMsg{profiles: []string{"global", "stg", "prd", "dev"}}
+}
+
+// TODO: switch to sqlite
+func (p *ProfilePage) addProfile(name string) error {
+	p.profiles = append(p.profiles, name)
+	return nil
 }
 
 func (p *ProfilePage) getItemsMaxLen(elems []string) int {
@@ -366,6 +384,7 @@ func (p *ProfilePage) handleNewProfileTab(shift bool) {
 			switch p.currentStage {
 			case addProfileName:
 				p.activePane = profilesPane
+				p.resetInfoBag()
 			case addProfileConfirm:
 				p.currentStage = addProfileName
 			case addProfileCancel:
@@ -386,6 +405,7 @@ func (p *ProfilePage) handleNewProfileTab(shift bool) {
 		case addProfileCancel:
 			p.currentStage = addProfileName
 			p.activePane = profilesPane
+			p.resetInfoBag()
 		}
 	}
 }
@@ -437,23 +457,42 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 }
 
 func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
+	p.resetInfoBag()
 	switch p.currentStage {
 	case addProfileName:
-		if p.issueMsg != "" {
-			p.issueMsg = ""
+		if strings.TrimSpace(p.textInput.Value()) == "" {
+			p.infoFlag = true
+			p.isErrInfo = true
+			p.infoMsg = "Please pass a valid profile name. You can exit flow by pressing <esc> if needed"
+			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
 		p.currentStage = addProfileConfirm
 		return nil
 	case addProfileConfirm:
 		name := strings.TrimSpace(p.textInput.Value())
 		if p.checkDuplicate(name) {
-			p.issueMsg = fmt.Sprintf("The name %s is already taken. Try another name or update the existing one first!", name)
+			p.infoMsg = fmt.Sprintf("The name %s is already taken. Try another name or update the existing one first!", name)
+			p.infoFlag = true
+			p.isErrInfo = true
 			p.textInput.SetValue("")
 			p.currentStage = addProfileName
-			p.issuesStyle = p.issuesStyle.Copy().Width(len(p.issueMsg) + 1)
+			p.issuesStyle = p.issuesStyle.Copy().Width(len(p.infoMsg) + 1)
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
-		return nil
+		return func() tea.Msg {
+			err := p.addProfile(name)
+			if err != nil {
+				return IssueMsg{Inner: err}
+			}
+			p.currentUserFlow = listProfiles
+			p.currentStage = chooseAction
+			p.activePane = profilesPane
+
+			p.setProfileList()
+			p.setActionsList()
+
+			return profileAddMsg{success: true}
+		}
 	case addProfileCancel:
 		p.currentStage = chooseAction
 		p.textInput.SetValue("")
@@ -490,7 +529,7 @@ func (p *ProfilePage) handleEsc() {
 	p.updateActionStyle()
 	p.updateProfileStyle()
 	p.textInput.SetValue("")
-	p.issueMsg = ""
+	p.infoMsg = ""
 }
 
 func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
@@ -533,7 +572,7 @@ func (p *ProfilePage) generateTitle() string {
 }
 
 func (p *ProfilePage) viewNewProfile() string {
-	var textInputStyle, confirmButtonStyle, cancelButtonStyle lipgloss.Style
+	var textInputStyle, confirmButtonStyle, cancelButtonStyle, infoStyle lipgloss.Style
 
 	switch p.currentStage {
 	case addProfileName:
@@ -547,7 +586,7 @@ func (p *ProfilePage) viewNewProfile() string {
 		textInputStyle = p.actionsStyle.BorderForeground(muted)
 		confirmButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
 		if p.textInput.Value() == "" {
-			confirmButtonStyle = p.mutedButton.Copy()
+			confirmButtonStyle = p.mutedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
 		}
 		cancelButtonStyle = p.mutedButton.Copy()
 	case addProfileCancel:
@@ -556,7 +595,12 @@ func (p *ProfilePage) viewNewProfile() string {
 		cancelButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
 	}
 
-	if p.issueMsg != "" {
+	if p.infoFlag {
+		infoStyle = p.issuesStyle.Copy().BorderForeground(green)
+		if p.isErrInfo {
+			infoStyle = p.issuesStyle.Copy().BorderForeground(red)
+		}
+
 		return lipgloss.Place(
 			p.width,
 			p.height,
@@ -565,7 +609,7 @@ func (p *ProfilePage) viewNewProfile() string {
 			lipgloss.JoinVertical(
 				lipgloss.Center,
 				p.titleStyle.Render(p.generateTitle()),
-				p.issuesStyle.Render(p.issueMsg),
+				infoStyle.Render(p.infoMsg),
 				lipgloss.JoinHorizontal(
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
