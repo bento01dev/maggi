@@ -145,6 +145,7 @@ type ProfilePage struct {
 	textInput         textinput.Model
 	highlightedButton lipgloss.Style
 	mutedButton       lipgloss.Style
+	deleteButton      lipgloss.Style
 	issuesStyle       lipgloss.Style
 }
 
@@ -201,6 +202,7 @@ func NewProfilePage() *ProfilePage {
 	baseButton := lipgloss.NewStyle().Padding(buttonPaddingVertical, buttonPaddingHorizontal).MarginLeft(1).Foreground(lipgloss.Color("0"))
 	confirmButton := baseButton.Copy().Background(green)
 	cancelButton := baseButton.Copy().Background(muted)
+	deleteButton := baseButton.Copy().Background(red)
 
 	return &ProfilePage{
 		helpMenu:          helpMenu,
@@ -214,6 +216,7 @@ func NewProfilePage() *ProfilePage {
 		textInput:         input,
 		highlightedButton: confirmButton,
 		mutedButton:       cancelButton,
+		deleteButton:      deleteButton,
 	}
 }
 
@@ -451,6 +454,16 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
 		p.currentProfile = item.name
+		p.currentStage = chooseAction
+		return nil
+	case actionsPane:
+		item, ok := p.actionList.SelectedItem().(actionItem)
+		if !ok {
+			return func() tea.Msg {
+				return errors.New("item not found in list. unknown issue")
+			}
+		}
+		p.currentUserFlow = item.next
 		return nil
 	}
 	return nil
@@ -566,6 +579,8 @@ func (p *ProfilePage) generateTitle() string {
 		second = " Profiles "
 	case newProfile:
 		second = " New Profile "
+	case deleteProfile:
+		second = " Delete Profile "
 	}
 	third := strings.Repeat("-", (defaultWidth - (len(second) + 3)))
 	return first + second + third
@@ -656,27 +671,8 @@ func (p *ProfilePage) viewNewProfile() string {
 	)
 }
 
-func (p *ProfilePage) View() string {
-	switch p.currentUserFlow {
-	case listProfiles:
-		if p.newProfileOption {
-			return lipgloss.Place(
-				p.width,
-				p.height,
-				lipgloss.Center,
-				lipgloss.Center,
-				lipgloss.JoinVertical(
-					lipgloss.Center,
-					p.titleStyle.Render(p.generateTitle()),
-					lipgloss.JoinHorizontal(
-						lipgloss.Center,
-						p.profilesStyle.Render(p.profileList.View()),
-						p.actionsStyle.Copy().Height(len(p.profiles)+1).Render(""),
-					),
-					p.helpMenu.View(p.keys),
-				),
-			)
-		}
+func (p *ProfilePage) viewListProfile() string {
+	if p.newProfileOption {
 		return lipgloss.Place(
 			p.width,
 			p.height,
@@ -688,13 +684,68 @@ func (p *ProfilePage) View() string {
 				lipgloss.JoinHorizontal(
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
-					p.actionsStyle.Render(p.actionList.View()),
+					p.actionsStyle.Copy().Height(len(p.profiles)+1).Render(""),
 				),
 				p.helpMenu.View(p.keys),
 			),
 		)
+	}
+	return lipgloss.Place(
+		p.width,
+		p.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			p.titleStyle.Render(p.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Center,
+				p.profilesStyle.Render(p.profileList.View()),
+				p.actionsStyle.Render(p.actionList.View()),
+			),
+			p.helpMenu.View(p.keys),
+		),
+	)
+}
+
+func (p *ProfilePage) viewDeleteProfile() string {
+	msg := "Deleting a profile will also delete all the aliases and envs attached to the profile. Are you sure?"
+	paddingTotal := 90 - len(msg)
+	infoStyle := p.issuesStyle.Copy().BorderForeground(red).PaddingLeft(paddingTotal / 2).PaddingRight(paddingTotal / 2)
+	return lipgloss.Place(
+		p.width,
+		p.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			p.titleStyle.Render(p.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Center,
+				p.profilesStyle.Render(p.profileList.View()),
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					infoStyle.Render(msg),
+					lipgloss.JoinHorizontal(
+						lipgloss.Center,
+						p.deleteButton.Render("Yes, Delete"),
+						p.mutedButton.Render("Cancel"),
+					),
+				),
+			),
+			p.helpMenu.View(p.keys),
+		),
+	)
+}
+
+func (p *ProfilePage) View() string {
+	switch p.currentUserFlow {
+	case listProfiles:
+		return p.viewListProfile()
 	case newProfile:
 		return p.viewNewProfile()
+	case deleteProfile:
+		return p.viewDeleteProfile()
 	}
 	return "profile page.."
 }
