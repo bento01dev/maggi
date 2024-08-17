@@ -63,6 +63,8 @@ const (
 	actionsPane
 )
 
+// NOTE: new profile and update profile flow have a lot of overlap, but also checks and method calls
+// can be slightly different. Code copying was simpler than trying to DRY it up too much.
 type profileStage int
 
 const (
@@ -761,9 +763,9 @@ func (p *ProfilePage) generateTitle() string {
 	case newProfile:
 		second = " New Profile "
 	case updateProfile:
-		second = " Update Profile "
+		second = fmt.Sprintf(" Update Profile | %s ", p.currentProfile)
 	case deleteProfile:
-		second = " Delete Profile "
+		second = fmt.Sprintf(" Delete Profile | %s ", p.currentProfile)
 	}
 	third := strings.Repeat("-", (defaultWidth - (len(second) + 3)))
 	return first + second + third
@@ -897,11 +899,11 @@ func (p *ProfilePage) viewUpdateProfile() string {
 					p.profilesStyle.Render(p.profileList.View()),
 					lipgloss.JoinVertical(
 						lipgloss.Left,
-						p.headingStyle.Render("Name:"),
+						p.headingStyle.Render("New Name:"),
 						textInputStyle.Render(p.textInput.View()),
 						lipgloss.JoinHorizontal(
 							lipgloss.Center,
-							confirmButtonStyle.Render("Create"),
+							confirmButtonStyle.Render("Update"),
 							cancelButtonStyle.Render("Cancel"),
 						),
 					),
