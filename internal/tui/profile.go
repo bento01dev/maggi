@@ -65,6 +65,7 @@ const (
 
 // NOTE: new profile and update profile flow have a lot of overlap, but also checks and method calls
 // can be slightly different. Code copying was simpler than trying to DRY it up too much.
+// will revisit later if needed
 type profileStage int
 
 const (
