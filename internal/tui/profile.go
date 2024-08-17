@@ -32,6 +32,8 @@ type profileAddMsg struct {
 	success bool
 }
 
+type profileDeleteMsg struct{}
+
 const (
 	defaultWidth        int = 120
 	defaultProfileWidth int = 30
@@ -255,6 +257,10 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p.currentUserFlow = listProfiles
 		p.profiles = msg.profiles
 		p.activePane = profilesPane
+		p.setActionsList()
+		p.setProfileList()
+		return p, nil
+	case profileAddMsg, profileDeleteMsg:
 		p.setActionsList()
 		p.setProfileList()
 		return p, nil
@@ -543,18 +549,19 @@ func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
 			p.issuesStyle = p.issuesStyle.Copy().Width(len(p.infoMsg) + 1)
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
+		p.currentUserFlow = listProfiles
+		p.currentStage = chooseAction
+		p.activePane = profilesPane
+
+		// p.setProfileList()
+		// p.setActionsList()
+
 		return func() tea.Msg {
 			err := p.addProfile(name)
 			if err != nil {
 				return IssueMsg{Inner: err}
 			}
-			p.currentUserFlow = listProfiles
-			p.currentStage = chooseAction
-			p.activePane = profilesPane
-
-			p.setProfileList()
-			p.setActionsList()
-
+			p.textInput.SetValue("")
 			return profileAddMsg{success: true}
 		}
 	case addProfileCancel:
@@ -597,18 +604,19 @@ func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
 		p.updateProfileStyle()
 		return nil
 	case deleteProfileConfirm:
+		p.currentUserFlow = listProfiles
+		p.currentStage = chooseAction
+		p.activePane = profilesPane
+		p.setProfileList()
+		p.setActionsList()
+
 		return func() tea.Msg {
 			err := p.deleteProfile(p.currentProfile)
 			if err != nil {
 				return IssueMsg{Inner: err}
 			}
-			p.currentUserFlow = listProfiles
-			p.currentStage = chooseAction
-			p.activePane = profilesPane
 			p.currentProfile = ""
-			p.setProfileList()
-			p.setActionsList()
-			return nil
+			return profileDeleteMsg{}
 		}
 	}
 	return nil
@@ -798,9 +806,11 @@ func (p *ProfilePage) viewDeleteProfile() string {
 	case deleteProfileConfirm:
 		deleteButton = p.deleteButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(red)
 		cancelButton = p.mutedButton
+		infoStyle = infoStyle.Copy().BorderForeground(muted)
 	case deleteProfileCancel:
 		deleteButton = p.deleteButton
 		cancelButton = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(green)
+		infoStyle = infoStyle.Copy().BorderForeground(muted)
 	}
 	return lipgloss.Place(
 		p.width,
