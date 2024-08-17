@@ -71,7 +71,9 @@ const (
 	addProfileCancel
 	updateProfileName
 	updateProfileConfirm
+	deleteProfileView
 	deleteProfileConfirm
+	deleteProfileCancel
 )
 
 type actionItem struct {
@@ -186,8 +188,8 @@ func NewProfilePage() *ProfilePage {
 			key.WithHelp("<esc>", "quit view"),
 		),
 	}
-	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(90).UnsetPadding()
-	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(30).UnsetPadding()
+	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(defaultActionsWidth).UnsetPadding()
+	profilesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultProfileWidth).UnsetPadding()
 	issuesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).UnsetPadding().BorderForeground(red)
 	actions := []string{"View Profile", "Update Profile", "Delete Profile"}
 	titleStyle := lipgloss.NewStyle().Foreground(green)
@@ -277,6 +279,18 @@ func (p *ProfilePage) addProfile(name string) error {
 	return nil
 }
 
+func (p *ProfilePage) deleteProfile(name string) error {
+	var pos int
+	for i, profile := range p.profiles {
+		if profile == name {
+			pos = i
+			break
+		}
+	}
+	p.profiles = append(p.profiles[:pos], p.profiles[pos+1:]...)
+	return nil
+}
+
 func (p *ProfilePage) getItemsMaxLen(elems []string) int {
 	var width int
 	for _, elem := range elems {
@@ -363,7 +377,7 @@ func (p *ProfilePage) handleTab(shift bool) {
 	case updateProfile:
 		p.handleUpdateProfileTab()
 	case deleteProfile:
-		p.handleDeleteProfileTab()
+		p.handleDeleteProfileTab(shift)
 	}
 	p.updateActionStyle()
 	p.updateProfileStyle()
@@ -416,7 +430,38 @@ func (p *ProfilePage) handleNewProfileTab(shift bool) {
 func (p *ProfilePage) handleUpdateProfileTab() {
 }
 
-func (p *ProfilePage) handleDeleteProfileTab() {
+func (p *ProfilePage) handleDeleteProfileTab(shift bool) {
+	if shift {
+		switch p.activePane {
+		case profilesPane:
+			p.activePane = actionsPane
+		case actionsPane:
+			switch p.currentStage {
+			case deleteProfileView:
+				p.activePane = profilesPane
+			case deleteProfileConfirm:
+				p.currentStage = deleteProfileView
+			case deleteProfileCancel:
+				p.currentStage = deleteProfileConfirm
+			}
+		}
+		return
+	}
+
+	switch p.activePane {
+	case profilesPane:
+		p.activePane = actionsPane
+	case actionsPane:
+		switch p.currentStage {
+		case deleteProfileView:
+			p.currentStage = deleteProfileConfirm
+		case deleteProfileConfirm:
+			p.currentStage = deleteProfileCancel
+		case deleteProfileCancel:
+			p.currentStage = deleteProfileView
+			p.activePane = profilesPane
+		}
+	}
 }
 
 func (p *ProfilePage) handleEnter() tea.Cmd {
@@ -464,6 +509,12 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 			}
 		}
 		p.currentUserFlow = item.next
+		switch p.currentUserFlow {
+		case updateProfile:
+			p.currentStage = updateProfileName
+		case deleteProfile:
+			p.currentStage = deleteProfileView
+		}
 		return nil
 	}
 	return nil
@@ -533,6 +584,33 @@ func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
 }
 
 func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
+	switch p.currentStage {
+	case deleteProfileView:
+		p.currentStage = deleteProfileConfirm
+		return nil
+	case deleteProfileCancel:
+		p.currentStage = chooseAction
+		p.currentProfile = ""
+		p.activePane = profilesPane
+		p.currentUserFlow = listProfiles
+		p.updateActionStyle()
+		p.updateProfileStyle()
+		return nil
+	case deleteProfileConfirm:
+		return func() tea.Msg {
+			err := p.deleteProfile(p.currentProfile)
+			if err != nil {
+				return IssueMsg{Inner: err}
+			}
+			p.currentUserFlow = listProfiles
+			p.currentStage = chooseAction
+			p.activePane = profilesPane
+			p.currentProfile = ""
+			p.setProfileList()
+			p.setActionsList()
+			return nil
+		}
+	}
 	return nil
 }
 
@@ -709,9 +787,21 @@ func (p *ProfilePage) viewListProfile() string {
 }
 
 func (p *ProfilePage) viewDeleteProfile() string {
-	msg := "Deleting a profile will also delete all the aliases and envs attached to the profile. Are you sure?"
-	paddingTotal := 90 - len(msg)
-	infoStyle := p.issuesStyle.Copy().BorderForeground(red).PaddingLeft(paddingTotal / 2).PaddingRight(paddingTotal / 2)
+	msg := fmt.Sprintf("Deleting profile %s will also delete all the aliases and envs attached to the profile. Are you sure?", p.currentProfile)
+	paddingTotal := defaultActionsWidth - len(msg)
+	var infoStyle, deleteButton, cancelButton lipgloss.Style
+	infoStyle = p.issuesStyle.Copy().BorderForeground(red).PaddingLeft(paddingTotal / 2).PaddingRight(paddingTotal / 2)
+	switch p.currentStage {
+	case deleteProfileView:
+		deleteButton = p.deleteButton
+		cancelButton = p.mutedButton
+	case deleteProfileConfirm:
+		deleteButton = p.deleteButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(red)
+		cancelButton = p.mutedButton
+	case deleteProfileCancel:
+		deleteButton = p.deleteButton
+		cancelButton = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(green)
+	}
 	return lipgloss.Place(
 		p.width,
 		p.height,
@@ -728,8 +818,8 @@ func (p *ProfilePage) viewDeleteProfile() string {
 					infoStyle.Render(msg),
 					lipgloss.JoinHorizontal(
 						lipgloss.Center,
-						p.deleteButton.Render("Yes, Delete"),
-						p.mutedButton.Render("Cancel"),
+						deleteButton.Render("Yes, Delete"),
+						cancelButton.Render("Cancel"),
 					),
 				),
 			),
