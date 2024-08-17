@@ -73,6 +73,7 @@ const (
 	addProfileCancel
 	updateProfileName
 	updateProfileConfirm
+	updateProfileCancel
 	deleteProfileView
 	deleteProfileConfirm
 	deleteProfileCancel
@@ -285,6 +286,21 @@ func (p *ProfilePage) addProfile(name string) error {
 	return nil
 }
 
+func (p *ProfilePage) updateProfile(oldName, newName string) error {
+	var pos = -1
+	for i, profile := range p.profiles {
+		if profile == oldName {
+			pos = i
+			break
+		}
+	}
+	if pos == -1 {
+		return errors.New("profile not found")
+	}
+	p.profiles[pos] = newName
+	return nil
+}
+
 func (p *ProfilePage) deleteProfile(name string) error {
 	var pos int
 	for i, profile := range p.profiles {
@@ -381,7 +397,7 @@ func (p *ProfilePage) handleTab(shift bool) {
 	case newProfile:
 		p.handleNewProfileTab(shift)
 	case updateProfile:
-		p.handleUpdateProfileTab()
+		p.handleUpdateProfileTab(shift)
 	case deleteProfile:
 		p.handleDeleteProfileTab(shift)
 	}
@@ -433,7 +449,40 @@ func (p *ProfilePage) handleNewProfileTab(shift bool) {
 	}
 }
 
-func (p *ProfilePage) handleUpdateProfileTab() {
+func (p *ProfilePage) handleUpdateProfileTab(shift bool) {
+	if shift {
+		switch p.activePane {
+		case profilesPane:
+			p.activePane = actionsPane
+		case actionsPane:
+			switch p.currentStage {
+			case updateProfileName:
+				p.activePane = profilesPane
+				p.resetInfoBag()
+			case updateProfileConfirm:
+				p.currentStage = updateProfileName
+			case updateProfileCancel:
+				p.currentStage = updateProfileConfirm
+			}
+		}
+		return
+	}
+
+	switch p.activePane {
+	case profilesPane:
+		p.activePane = actionsPane
+	case actionsPane:
+		switch p.currentStage {
+		case updateProfileName:
+			p.currentStage = updateProfileConfirm
+		case updateProfileConfirm:
+			p.currentStage = updateProfileCancel
+		case updateProfileCancel:
+			p.currentStage = updateProfileName
+			p.activePane = profilesPane
+			p.resetInfoBag()
+		}
+	}
 }
 
 func (p *ProfilePage) handleDeleteProfileTab(shift bool) {
@@ -517,7 +566,10 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 		p.currentUserFlow = item.next
 		switch p.currentUserFlow {
 		case updateProfile:
+			p.infoFlag = true
+			p.infoMsg = fmt.Sprintf("You are trying to update %s with a new name. Please follow the instructions below.", p.currentProfile)
 			p.currentStage = updateProfileName
+			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		case deleteProfile:
 			p.currentStage = deleteProfileView
 		}
@@ -587,6 +639,49 @@ func (p *ProfilePage) handleViewProfileEnter() tea.Cmd {
 }
 
 func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
+	p.resetInfoBag()
+	input := strings.TrimSpace(p.textInput.Value())
+	switch p.currentStage {
+	case updateProfileName:
+		if input == "" || input == p.currentProfile {
+			p.infoFlag = true
+			p.isErrInfo = true
+			p.infoMsg = fmt.Sprintf("Please provide a valid new name to update %s. You can exit flow by pressing <esc> if needed", p.currentProfile)
+			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
+		}
+		p.currentStage = updateProfileConfirm
+		return nil
+	case updateProfileConfirm:
+		if p.checkDuplicate(input) {
+			p.infoMsg = fmt.Sprintf("The name %s is already taken. Try another name or update the existing one first!", input)
+			p.infoFlag = true
+			p.isErrInfo = true
+			p.textInput.SetValue("")
+			p.currentStage = updateProfileName
+			p.issuesStyle = p.issuesStyle.Copy().Width(len(p.infoMsg) + 1)
+			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
+		}
+		p.currentUserFlow = listProfiles
+		p.currentStage = chooseAction
+		p.activePane = profilesPane
+
+		return func() tea.Msg {
+			err := p.updateProfile(p.currentProfile, input)
+			if err != nil {
+				return IssueMsg{Inner: err}
+			}
+			p.textInput.SetValue("")
+			return profileAddMsg{success: true}
+		}
+	case updateProfileCancel:
+		p.currentStage = chooseAction
+		p.textInput.SetValue("")
+		p.currentUserFlow = listProfiles
+		p.activePane = profilesPane
+		p.updateActionStyle()
+		p.updateProfileStyle()
+		return nil
+	}
 	return nil
 }
 
@@ -650,7 +745,7 @@ func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
 		switch p.currentUserFlow {
 		case listProfiles:
 			p.actionList, cmd = p.actionList.Update(msg)
-		case newProfile:
+		case newProfile, updateProfile:
 			p.textInput, cmd = p.textInput.Update(msg)
 		}
 	}
@@ -665,6 +760,8 @@ func (p *ProfilePage) generateTitle() string {
 		second = " Profiles "
 	case newProfile:
 		second = " New Profile "
+	case updateProfile:
+		second = " Update Profile "
 	case deleteProfile:
 		second = " Delete Profile "
 	}
@@ -748,6 +845,90 @@ func (p *ProfilePage) viewNewProfile() string {
 					lipgloss.JoinHorizontal(
 						lipgloss.Center,
 						confirmButtonStyle.Render("Create"),
+						cancelButtonStyle.Render("Cancel"),
+					),
+				),
+			),
+			p.helpMenu.View(p.keys),
+		),
+	)
+}
+
+func (p *ProfilePage) viewUpdateProfile() string {
+	var textInputStyle, confirmButtonStyle, cancelButtonStyle, infoStyle lipgloss.Style
+	switch p.currentStage {
+	case updateProfileName:
+		textInputStyle = p.actionsStyle.Copy()
+		confirmButtonStyle = p.mutedButton.Copy()
+		if p.textInput.Value() != "" {
+			confirmButtonStyle = p.highlightedButton.Copy()
+		}
+		cancelButtonStyle = p.mutedButton.Copy()
+	case updateProfileConfirm:
+		textInputStyle = p.actionsStyle.BorderForeground(muted)
+		confirmButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
+		if p.textInput.Value() == "" {
+			confirmButtonStyle = p.mutedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
+		}
+		cancelButtonStyle = p.mutedButton.Copy()
+	case updateProfileCancel:
+		textInputStyle = p.actionsStyle.BorderForeground(muted)
+		confirmButtonStyle = p.mutedButton.Copy()
+		cancelButtonStyle = p.highlightedButton.Copy().Border(lipgloss.DoubleBorder()).BorderForeground(blue)
+	}
+
+	if p.infoFlag {
+		infoStyle = p.issuesStyle.Copy().BorderForeground(green)
+		if p.isErrInfo {
+			infoStyle = p.issuesStyle.Copy().BorderForeground(red)
+		}
+
+		return lipgloss.Place(
+			p.width,
+			p.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				p.titleStyle.Render(p.generateTitle()),
+				infoStyle.Render(p.infoMsg),
+				lipgloss.JoinHorizontal(
+					lipgloss.Center,
+					p.profilesStyle.Render(p.profileList.View()),
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						p.headingStyle.Render("Name:"),
+						textInputStyle.Render(p.textInput.View()),
+						lipgloss.JoinHorizontal(
+							lipgloss.Center,
+							confirmButtonStyle.Render("Create"),
+							cancelButtonStyle.Render("Cancel"),
+						),
+					),
+				),
+				p.helpMenu.View(p.keys),
+			),
+		)
+	}
+
+	return lipgloss.Place(
+		p.width,
+		p.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			p.titleStyle.Render(p.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Center,
+				p.profilesStyle.Render(p.profileList.View()),
+				lipgloss.JoinVertical(
+					lipgloss.Left,
+					p.headingStyle.Render("New Name:"),
+					textInputStyle.Render(p.textInput.View()),
+					lipgloss.JoinHorizontal(
+						lipgloss.Center,
+						confirmButtonStyle.Render("Update"),
 						cancelButtonStyle.Render("Cancel"),
 					),
 				),
@@ -844,6 +1025,8 @@ func (p *ProfilePage) View() string {
 		return p.viewListProfile()
 	case newProfile:
 		return p.viewNewProfile()
+	case updateProfile:
+		return p.viewUpdateProfile()
 	case deleteProfile:
 		return p.viewDeleteProfile()
 	}
