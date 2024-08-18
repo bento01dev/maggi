@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/bento01dev/maggi/internal/data"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -138,6 +139,7 @@ type ProfilePage struct {
 	currentUserFlow   profileUserFlow
 	activePane        profilePagePane
 	currentStage      profileStage
+	profileModel      *data.Profiles
 	currentProfile    string
 	infoMsg           string
 	actions           []string
@@ -157,7 +159,7 @@ type ProfilePage struct {
 	issuesStyle       lipgloss.Style
 }
 
-func NewProfilePage() *ProfilePage {
+func NewProfilePage(profileModel *data.Profiles) *ProfilePage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
 	descStyle := lipgloss.NewStyle().Foreground(muted)
@@ -213,6 +215,7 @@ func NewProfilePage() *ProfilePage {
 	deleteButton := baseButton.Copy().Background(red)
 
 	return &ProfilePage{
+		profileModel:      profileModel,
 		helpMenu:          helpMenu,
 		keys:              keys,
 		actionsStyle:      actionsStyle,

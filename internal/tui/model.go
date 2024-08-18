@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/bento01dev/maggi/internal/data"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -87,11 +88,11 @@ type MaggiModel struct {
 	err         error
 }
 
-func NewMaggiModel(debugFlag bool) *MaggiModel {
+func NewMaggiModel(debugFlag bool, dataModel data.DataModel) *MaggiModel {
 	return &MaggiModel{
 		pages: map[pageType]Page{
 			issue:   NewIssuePage(debugFlag),
-			profile: NewProfilePage(),
+			profile: NewProfilePage(dataModel.Profiles),
 		},
 	}
 }
