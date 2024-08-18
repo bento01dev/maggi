@@ -130,6 +130,13 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 	}
 }
 
+type profileModel interface {
+    GetAll() ([]data.Profile, error)
+    Add(name string) (data.Profile, error)
+    Update(profile data.Profile, newName string) error
+    Delete(name string) error
+}
+
 type ProfilePage struct {
 	newProfileOption  bool
 	infoFlag          bool
@@ -139,7 +146,7 @@ type ProfilePage struct {
 	currentUserFlow   profileUserFlow
 	activePane        profilePagePane
 	currentStage      profileStage
-	profileModel      *data.Profiles
+	profileModel      profileModel
 	currentProfile    string
 	infoMsg           string
 	actions           []string
@@ -159,7 +166,7 @@ type ProfilePage struct {
 	issuesStyle       lipgloss.Style
 }
 
-func NewProfilePage(profileModel *data.Profiles) *ProfilePage {
+func NewProfilePage(profileDataModel *data.Profiles) *ProfilePage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
 	descStyle := lipgloss.NewStyle().Foreground(muted)
@@ -215,7 +222,7 @@ func NewProfilePage(profileModel *data.Profiles) *ProfilePage {
 	deleteButton := baseButton.Copy().Background(red)
 
 	return &ProfilePage{
-		profileModel:      profileModel,
+		profileModel:      profileDataModel,
 		helpMenu:          helpMenu,
 		keys:              keys,
 		actionsStyle:      actionsStyle,
