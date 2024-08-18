@@ -6,12 +6,12 @@ import (
 )
 
 func Run(debugFlag bool) error {
-    db, err := data.Setup()
-    if err != nil {
-        return err
-    }
-    
-    dataModel := data.NewDataModel(db)
+	db, err := data.Setup()
+	if err != nil {
+		return err
+	}
+
+	dataModel := data.NewDataModel(db)
 	model := NewMaggiModel(debugFlag, dataModel)
 	if _, err := tea.NewProgram(model).Run(); err != nil {
 		return err

@@ -27,6 +27,7 @@ func (p ProfileDoneMsg) Next() pageType {
 
 type retrieveMsg struct {
 	profiles []string
+	err      error
 }
 
 type profileAddMsg struct {
@@ -131,10 +132,10 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 }
 
 type profileModel interface {
-    GetAll() ([]data.Profile, error)
-    Add(name string) (data.Profile, error)
-    Update(profile data.Profile, newName string) error
-    Delete(name string) error
+	GetAll() ([]data.Profile, error)
+	Add(name string) (data.Profile, error)
+	Update(profile data.Profile, newName string) error
+	Delete(profile data.Profile) error
 }
 
 type ProfilePage struct {
@@ -268,6 +269,11 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return p, nil
 		}
 	case retrieveMsg:
+		if msg.err != nil {
+			return p, func() tea.Msg {
+				return IssueMsg{Inner: msg.err}
+			}
+		}
 		p.currentUserFlow = listProfiles
 		p.profiles = msg.profiles
 		p.activePane = profilesPane
@@ -290,11 +296,23 @@ func (p *ProfilePage) resetInfoBag() {
 }
 
 func (p *ProfilePage) getProfiles() retrieveMsg {
-	return retrieveMsg{profiles: []string{"global", "stg", "prd", "dev"}}
+	profiles, err := p.profileModel.GetAll()
+	if err != nil {
+		return retrieveMsg{err: err}
+	}
+	var res []string
+	for _, p := range profiles {
+		res = append(res, p.Name)
+	}
+	return retrieveMsg{profiles: res}
 }
 
 // TODO: switch to sqlite
 func (p *ProfilePage) addProfile(name string) error {
+	_, err := p.profileModel.Add(name)
+	if err != nil {
+		return err
+	}
 	p.profiles = append(p.profiles, name)
 	return nil
 }
