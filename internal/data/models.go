@@ -41,15 +41,15 @@ func Setup() (*sql.DB, error) {
 	}
 
 	maggiLoc := filepath.Join(homeDir, dbFilePath)
-    _, err = os.Stat(maggiLoc)
-    if os.IsNotExist(err) {
-        err = os.MkdirAll(maggiLoc, 0755)
-        if err != nil {
-            return nil, err
-        }
-    }
+	_, err = os.Stat(maggiLoc)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(maggiLoc, 0755)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-    dbPath := filepath.Join(maggiLoc, dbFileName)
+	dbPath := filepath.Join(maggiLoc, dbFileName)
 
 	var db *sql.DB
 	db, err = sql.Open("sqlite3", dbPath)

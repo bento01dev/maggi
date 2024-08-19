@@ -315,10 +315,10 @@ func (p *ProfilePage) addProfile(name string) error {
 }
 
 func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error {
-    _, err := p.profileModel.Update(*profile, newName)
-    if err != nil {
-        return err
-    }
+	_, err := p.profileModel.Update(*profile, newName)
+	if err != nil {
+		return err
+	}
 	// var pos = -1
 	// for i, profile := range p.profiles {
 	// 	if profile == oldName {
@@ -334,10 +334,10 @@ func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error
 }
 
 func (p *ProfilePage) deleteProfile(profile *data.Profile) error {
-    err := p.profileModel.Delete(*profile)
-    if err != nil {
-        return err 
-    }
+	err := p.profileModel.Delete(*profile)
+	if err != nil {
+		return err
+	}
 	// var pos int
 	// for i, profile := range p.profiles {
 	// 	if profile == name {
@@ -404,14 +404,14 @@ func (p *ProfilePage) setActionsList() {
 
 func (p *ProfilePage) setProfileList() {
 	profilesList := []list.Item{}
-    var err error 
-    p.profiles, err = p.profileModel.GetAll()
-    //TODO: it just returns for now. but need to exit with error 
-    if err != nil {
-        return
-    }
+	var err error
+	p.profiles, err = p.profileModel.GetAll()
+	//TODO: it just returns for now. but need to exit with error
+	if err != nil {
+		return
+	}
 	for _, profile := range p.profiles {
-        profilesList = append(profilesList, profileItem{id: profile.ID, name: profile.Name})
+		profilesList = append(profilesList, profileItem{id: profile.ID, name: profile.Name})
 	}
 	profilesList = append(profilesList, profileItem{name: "Add Profile...", action: true})
 	p.profileList = GenerateList(profilesList, renderProfileItem, 30, len(profilesList))
