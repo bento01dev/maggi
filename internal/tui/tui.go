@@ -10,6 +10,7 @@ func Run(debugFlag bool) error {
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	dataModel := data.NewDataModel(db)
 	model := NewMaggiModel(debugFlag, dataModel)
