@@ -26,7 +26,7 @@ func (p ProfileDoneMsg) Next() pageType {
 }
 
 type retrieveMsg struct {
-	profiles []string
+	profiles []data.Profile
 	err      error
 }
 
@@ -99,6 +99,7 @@ func renderActionItem(i list.Item) string {
 }
 
 type profileItem struct {
+	id     int
 	name   string
 	action bool
 }
@@ -134,7 +135,7 @@ func (h profileHelpKeys) FullHelp() [][]key.Binding {
 type profileModel interface {
 	GetAll() ([]data.Profile, error)
 	Add(name string) (data.Profile, error)
-	Update(profile data.Profile, newName string) error
+	Update(profile data.Profile, newName string) (data.Profile, error)
 	Delete(profile data.Profile) error
 }
 
@@ -148,10 +149,10 @@ type ProfilePage struct {
 	activePane        profilePagePane
 	currentStage      profileStage
 	profileModel      profileModel
-	currentProfile    string
+	currentProfile    *data.Profile
 	infoMsg           string
 	actions           []string
-	profiles          []string
+	profiles          []data.Profile
 	actionList        list.Model
 	actionsStyle      lipgloss.Style
 	profileList       list.Model
@@ -300,47 +301,51 @@ func (p *ProfilePage) getProfiles() retrieveMsg {
 	if err != nil {
 		return retrieveMsg{err: err}
 	}
-	var res []string
-	for _, p := range profiles {
-		res = append(res, p.Name)
-	}
-	return retrieveMsg{profiles: res}
+	return retrieveMsg{profiles: profiles}
 }
 
 // TODO: switch to sqlite
 func (p *ProfilePage) addProfile(name string) error {
-	_, err := p.profileModel.Add(name)
+	profile, err := p.profileModel.Add(name)
 	if err != nil {
 		return err
 	}
-	p.profiles = append(p.profiles, name)
+	p.profiles = append(p.profiles, profile)
 	return nil
 }
 
-func (p *ProfilePage) updateProfile(oldName, newName string) error {
-	var pos = -1
-	for i, profile := range p.profiles {
-		if profile == oldName {
-			pos = i
-			break
-		}
-	}
-	if pos == -1 {
-		return errors.New("profile not found")
-	}
-	p.profiles[pos] = newName
+func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error {
+    _, err := p.profileModel.Update(*profile, newName)
+    if err != nil {
+        return err
+    }
+	// var pos = -1
+	// for i, profile := range p.profiles {
+	// 	if profile == oldName {
+	// 		pos = i
+	// 		break
+	// 	}
+	// }
+	// if pos == -1 {
+	// 	return errors.New("profile not found")
+	// }
+	// p.profiles[pos] = newName
 	return nil
 }
 
-func (p *ProfilePage) deleteProfile(name string) error {
-	var pos int
-	for i, profile := range p.profiles {
-		if profile == name {
-			pos = i
-			break
-		}
-	}
-	p.profiles = append(p.profiles[:pos], p.profiles[pos+1:]...)
+func (p *ProfilePage) deleteProfile(profile *data.Profile) error {
+    err := p.profileModel.Delete(*profile)
+    if err != nil {
+        return err 
+    }
+	// var pos int
+	// for i, profile := range p.profiles {
+	// 	if profile == name {
+	// 		pos = i
+	// 		break
+	// 	}
+	// }
+	// p.profiles = append(p.profiles[:pos], p.profiles[pos+1:]...)
 	return nil
 }
 
@@ -355,7 +360,11 @@ func (p *ProfilePage) getItemsMaxLen(elems []string) int {
 }
 
 func (p *ProfilePage) checkDuplicate(name string) bool {
-	return slices.Contains(p.profiles, name)
+	var names []string
+	for _, profile := range p.profiles {
+		names = append(names, profile.Name)
+	}
+	return slices.Contains(names, name)
 }
 
 func (p *ProfilePage) setActionsList() {
@@ -395,8 +404,14 @@ func (p *ProfilePage) setActionsList() {
 
 func (p *ProfilePage) setProfileList() {
 	profilesList := []list.Item{}
-	for _, profileStr := range p.profiles {
-		profilesList = append(profilesList, profileItem{name: profileStr})
+    var err error 
+    p.profiles, err = p.profileModel.GetAll()
+    //TODO: it just returns for now. but need to exit with error 
+    if err != nil {
+        return
+    }
+	for _, profile := range p.profiles {
+        profilesList = append(profilesList, profileItem{id: profile.ID, name: profile.Name})
 	}
 	profilesList = append(profilesList, profileItem{name: "Add Profile...", action: true})
 	p.profileList = GenerateList(profilesList, renderProfileItem, 30, len(profilesList))
@@ -584,7 +599,7 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 			p.currentStage = addProfileName
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
-		p.currentProfile = item.name
+		p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
 		p.currentStage = chooseAction
 		return nil
 	case actionsPane:
@@ -636,9 +651,6 @@ func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
 		p.currentStage = chooseAction
 		p.activePane = profilesPane
 
-		// p.setProfileList()
-		// p.setActionsList()
-
 		return func() tea.Msg {
 			err := p.addProfile(name)
 			if err != nil {
@@ -674,7 +686,7 @@ func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
 	input := strings.TrimSpace(p.textInput.Value())
 	switch p.currentStage {
 	case updateProfileName:
-		if input == "" || input == p.currentProfile {
+		if input == "" || input == p.currentProfile.Name {
 			p.infoFlag = true
 			p.isErrInfo = true
 			p.infoMsg = fmt.Sprintf("Please provide a valid new name to update %s. You can exit flow by pressing <esc> if needed", p.currentProfile)
@@ -723,7 +735,7 @@ func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
 		return nil
 	case deleteProfileCancel:
 		p.currentStage = chooseAction
-		p.currentProfile = ""
+		p.currentProfile = nil
 		p.activePane = profilesPane
 		p.currentUserFlow = listProfiles
 		p.updateActionStyle()
@@ -741,7 +753,7 @@ func (p *ProfilePage) handleDeleteProfileEnter() tea.Cmd {
 			if err != nil {
 				return IssueMsg{Inner: err}
 			}
-			p.currentProfile = ""
+			p.currentProfile = nil
 			return profileDeleteMsg{}
 		}
 	}
@@ -1007,7 +1019,7 @@ func (p *ProfilePage) viewListProfile() string {
 }
 
 func (p *ProfilePage) viewDeleteProfile() string {
-	msg := fmt.Sprintf("Deleting profile %s will also delete all the aliases and envs attached to the profile. Are you sure?", p.currentProfile)
+	msg := fmt.Sprintf("Deleting profile %s will also delete all the aliases and envs attached to the profile. Are you sure?", p.currentProfile.Name)
 	paddingTotal := defaultActionsWidth - len(msg)
 	var infoStyle, deleteButton, cancelButton lipgloss.Style
 	infoStyle = p.issuesStyle.Copy().BorderForeground(red).PaddingLeft(paddingTotal / 2).PaddingRight(paddingTotal / 2)

@@ -47,10 +47,18 @@ func (p *Profiles) Add(name string) (Profile, error) {
 	return Profile{ID: int(id), Name: name}, nil
 }
 
-func (p *Profiles) Update(profile Profile, newName string) error {
-	return nil
+func (p *Profiles) Update(profile Profile, newName string) (Profile, error) {
+    stmt := "UPDATE profiles SET name = ? WHERE id = ?;"
+    _, err := p.db.Exec(stmt, newName, profile.ID)
+    if err != nil {
+        return profile, err
+    }
+    profile.Name = newName
+	return profile, nil
 }
 
 func (p *Profiles) Delete(profile Profile) error {
-	return nil
+    stmt := "DELETE FROM profiles WHERE id = ?;"
+    _, err := p.db.Exec(stmt, profile.ID)
+    return err
 }

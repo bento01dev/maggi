@@ -3,12 +3,15 @@ package data
 import (
 	"context"
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
+	"os"
+	"path/filepath"
 	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
-	dbFilePath = ".maggi"
+	dbFilePath = ".maggi/"
 	dbFileName = "maggi.db"
 )
 
@@ -31,9 +34,25 @@ func NewDataModel(db *sql.DB) DataModel {
 }
 
 func Setup() (*sql.DB, error) {
-	var db *sql.DB
 	var err error
-	db, err = sql.Open("sqlite3", dbFileName)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	maggiLoc := filepath.Join(homeDir, dbFilePath)
+    _, err = os.Stat(maggiLoc)
+    if os.IsNotExist(err) {
+        err = os.MkdirAll(maggiLoc, 0755)
+        if err != nil {
+            return nil, err
+        }
+    }
+
+    dbPath := filepath.Join(maggiLoc, dbFileName)
+
+	var db *sql.DB
+	db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return db, err
 	}
