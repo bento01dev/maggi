@@ -630,7 +630,7 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 		switch p.currentUserFlow {
 		case updateProfile:
 			p.infoFlag = true
-			p.infoMsg = fmt.Sprintf("You are trying to update %s with a new name. Please follow the instructions below.", p.currentProfile)
+			p.infoMsg = fmt.Sprintf("You are trying to update %s with a new name. Please follow the instructions below.", p.currentProfile.Name)
 			p.currentStage = updateProfileName
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		case deleteProfile:
@@ -706,7 +706,7 @@ func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
 		if input == "" || input == p.currentProfile.Name {
 			p.infoFlag = true
 			p.isErrInfo = true
-			p.infoMsg = fmt.Sprintf("Please provide a valid new name to update %s. You can exit flow by pressing <esc> if needed", p.currentProfile)
+			p.infoMsg = fmt.Sprintf("Please provide a valid new name to update %s. You can exit flow by pressing <esc> if needed", p.currentProfile.Name)
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		}
 		p.currentStage = updateProfileConfirm
@@ -819,9 +819,9 @@ func (p *ProfilePage) generateTitle() string {
 	case newProfile:
 		second = " New Profile "
 	case updateProfile:
-		second = fmt.Sprintf(" Update Profile | %s ", p.currentProfile)
+		second = fmt.Sprintf(" Update Profile | %s ", p.currentProfile.Name)
 	case deleteProfile:
-		second = fmt.Sprintf(" Delete Profile | %s ", p.currentProfile)
+		second = fmt.Sprintf(" Delete Profile | %s ", p.currentProfile.Name)
 	}
 	third := strings.Repeat("-", (defaultWidth - (len(second) + 3)))
 	return first + second + third
