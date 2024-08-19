@@ -245,10 +245,6 @@ func (p *ProfilePage) Init() tea.Cmd {
 	return nil
 }
 
-//TODO: handle enter. do for each stage and pane combo
-//TODO: figure out height
-//TODO: default list when no profiles
-
 func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProfileStartMsg:
@@ -317,7 +313,6 @@ func (p *ProfilePage) getProfiles() retrieveMsg {
 	return retrieveMsg{profiles: profiles}
 }
 
-// TODO: switch to sqlite
 func (p *ProfilePage) addProfile(name string) error {
 	profile, err := p.profileModel.Add(name)
 	if err != nil {
@@ -332,17 +327,6 @@ func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error
 	if err != nil {
 		return err
 	}
-	// var pos = -1
-	// for i, profile := range p.profiles {
-	// 	if profile == oldName {
-	// 		pos = i
-	// 		break
-	// 	}
-	// }
-	// if pos == -1 {
-	// 	return errors.New("profile not found")
-	// }
-	// p.profiles[pos] = newName
 	return nil
 }
 
@@ -351,14 +335,6 @@ func (p *ProfilePage) deleteProfile(profile *data.Profile) error {
 	if err != nil {
 		return err
 	}
-	// var pos int
-	// for i, profile := range p.profiles {
-	// 	if profile == name {
-	// 		pos = i
-	// 		break
-	// 	}
-	// }
-	// p.profiles = append(p.profiles[:pos], p.profiles[pos+1:]...)
 	return nil
 }
 
@@ -418,6 +394,12 @@ func (p *ProfilePage) setActionsList() {
 func (p *ProfilePage) resetProfiles() error {
 	var err error
 	p.profiles, err = p.profileModel.GetAll()
+	if err != nil {
+		return err
+	}
+	if len(p.profiles) == 0 {
+		p.newProfileOption = true
+	}
 	return err
 }
 
@@ -998,6 +980,10 @@ func (p *ProfilePage) viewUpdateProfile() string {
 
 func (p *ProfilePage) viewListProfile() string {
 	if p.newProfileOption {
+		h := defaultHeight
+		if len(p.profiles)+1 > h {
+			h = len(p.profiles) + 1
+		}
 		return lipgloss.Place(
 			p.width,
 			p.height,
@@ -1009,7 +995,7 @@ func (p *ProfilePage) viewListProfile() string {
 				lipgloss.JoinHorizontal(
 					lipgloss.Center,
 					p.profilesStyle.Render(p.profileList.View()),
-					p.actionsStyle.Copy().Height(len(p.profiles)+1).Render(""),
+					p.actionsStyle.Copy().Height(h).Render(""),
 				),
 				p.helpMenu.View(p.keys),
 			),
