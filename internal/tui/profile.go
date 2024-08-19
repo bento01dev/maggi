@@ -276,12 +276,12 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return IssueMsg{Inner: msg.err}
 			}
 		}
-        err := p.resetProfiles()
-        if err != nil {
-            return p, func() tea.Msg {
-                return IssueMsg{Inner: err}
-            }
-        }
+		err := p.resetProfiles()
+		if err != nil {
+			return p, func() tea.Msg {
+				return IssueMsg{Inner: err}
+			}
+		}
 		p.currentUserFlow = listProfiles
 		p.profiles = msg.profiles
 		p.activePane = profilesPane
@@ -289,12 +289,12 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p.setProfileList()
 		return p, nil
 	case profileAddMsg, profileDeleteMsg:
-        err := p.resetProfiles()
-        if err != nil {
-            return p, func() tea.Msg {
-                return IssueMsg{Inner: err}
-            }
-        }
+		err := p.resetProfiles()
+		if err != nil {
+			return p, func() tea.Msg {
+				return IssueMsg{Inner: err}
+			}
+		}
 		p.setActionsList()
 		p.setProfileList()
 		return p, nil
@@ -418,7 +418,7 @@ func (p *ProfilePage) setActionsList() {
 func (p *ProfilePage) resetProfiles() error {
 	var err error
 	p.profiles, err = p.profileModel.GetAll()
-    return err
+	return err
 }
 
 func (p *ProfilePage) setProfileList() {
