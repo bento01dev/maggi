@@ -169,7 +169,7 @@ type ProfilePage struct {
 	issuesStyle       lipgloss.Style
 }
 
-func NewProfilePage(profileDataModel *data.Profiles) *ProfilePage {
+func NewProfilePage(profileDataModel profileModel) *ProfilePage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
 	descStyle := lipgloss.NewStyle().Foreground(muted)
@@ -392,11 +392,11 @@ func (p *ProfilePage) setActionsList() {
 }
 
 func (p *ProfilePage) resetProfiles() error {
-	var err error
-	p.profiles, err = p.profileModel.GetAll()
+	newProfiles, err := p.profileModel.GetAll()
 	if err != nil {
 		return err
 	}
+	p.profiles = newProfiles
 	if len(p.profiles) == 0 {
 		p.newProfileOption = true
 	}
