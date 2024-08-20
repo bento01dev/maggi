@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bento01dev/maggi/internal/data"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -272,6 +273,193 @@ func TestResetProfiles(t *testing.T) {
 			err := profilePage.resetProfiles()
 			assert.Equal(t, err, testcase.err)
 			assert.Equal(t, profilePage.profiles, testcase.post)
+		})
+	}
+}
+
+func TestUpdateActionStyle(t *testing.T) {
+	testcases := []struct {
+		name       string
+		activePane profilePagePane
+		expected   lipgloss.Color
+	}{
+		{
+			name:       "muted when profile pane is active",
+			activePane: profilesPane,
+			expected:   muted,
+		},
+		{
+			name:       "green when action pane is active",
+			activePane: actionsPane,
+			expected:   green,
+		},
+	}
+
+	profilePage := NewProfilePage(profileModelStub{})
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage.activePane = testcase.activePane
+			profilePage.updateActionStyle()
+			assert.Equal(t, profilePage.actionsStyle.GetBorderBottomForeground(), testcase.expected)
+			assert.Equal(t, profilePage.actionsStyle.GetBorderTopForeground(), testcase.expected)
+			assert.Equal(t, profilePage.actionsStyle.GetBorderLeftForeground(), testcase.expected)
+			assert.Equal(t, profilePage.actionsStyle.GetBorderRightForeground(), testcase.expected)
+		})
+	}
+}
+
+func TestUpdateProfileStyle(t *testing.T) {
+	testcases := []struct {
+		name       string
+		activePane profilePagePane
+		expected   lipgloss.Color
+	}{
+		{
+			name:       "muted when action pane is active",
+			activePane: actionsPane,
+			expected:   muted,
+		},
+		{
+			name:       "green when profile pane is active",
+			activePane: profilesPane,
+			expected:   green,
+		},
+	}
+
+	profilePage := NewProfilePage(profileModelStub{})
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage.activePane = testcase.activePane
+			profilePage.updateProfileStyle()
+			assert.Equal(t, profilePage.profilesStyle.GetBorderBottomForeground(), testcase.expected)
+			assert.Equal(t, profilePage.profilesStyle.GetBorderTopForeground(), testcase.expected)
+			assert.Equal(t, profilePage.profilesStyle.GetBorderLeftForeground(), testcase.expected)
+			assert.Equal(t, profilePage.profilesStyle.GetBorderRightForeground(), testcase.expected)
+		})
+	}
+}
+
+func TestHandleListProfilesTab(t *testing.T) {
+	testcases := []struct {
+		name string
+		pre  profilePagePane
+		post profilePagePane
+	}{
+		{
+			name: "switch to action pane when on profiles",
+			pre:  profilesPane,
+			post: actionsPane,
+		},
+		{
+			name: "switch to profile pane when on actions",
+			pre:  actionsPane,
+			post: profilesPane,
+		},
+	}
+
+	profilePage := NewProfilePage(profileModelStub{})
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage.activePane = testcase.pre
+			profilePage.handleListProfilesTab()
+			assert.Equal(t, profilePage.activePane, testcase.post)
+		})
+	}
+}
+
+func TestHandleNewProfileTab(t *testing.T) {
+	testcases := []struct {
+		name          string
+		shift         bool
+		activePane    profilePagePane
+		newPane       profilePagePane
+		currentStage  profileStage
+		newStage      profileStage
+		preInfoFlag   bool
+		preIsErrInfo  bool
+		preInfoMsg    string
+		postInfoFlag  bool
+		postIsErrInfo bool
+		postInfoMsg   string
+	}{
+		{
+			name:       "shift tab on profile pane switches to actions pane",
+			shift:      true,
+			activePane: profilesPane,
+			newPane:    actionsPane,
+		},
+		{
+			name:         "shift tab on actions pane should switch to profiles and reset info if stage is add profile",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      profilesPane,
+			currentStage: addProfileName,
+			newStage:     addProfileName,
+			preInfoFlag:  true,
+			preIsErrInfo: true,
+			preInfoMsg:   "test",
+		},
+		{
+			name:         "shift tab on actions pane should switch stage to profile name when current one is profile confirm",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: addProfileConfirm,
+			newStage:     addProfileName,
+		},
+		{
+			name:         "shift tab on actions pane should switch stage to profile confirm when current one is profile cancel",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: addProfileCancel,
+			newStage:     addProfileConfirm,
+		},
+		{
+			name:       "tab on profile pane switches to actions pane",
+			activePane: profilesPane,
+			newPane:    actionsPane,
+		},
+		{
+			name:         "tab on actions pane should change current stage from profile name to profile confirm",
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: addProfileName,
+			newStage:     addProfileConfirm,
+		},
+		{
+			name:         "tab on actions pane should change current stage from profile confirm to profile cancel",
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: addProfileConfirm,
+			newStage:     addProfileCancel,
+		},
+		{
+			name:         "tab on actions pane should switch to profiles and reset info if stage is add profile",
+			activePane:   actionsPane,
+			newPane:      profilesPane,
+			currentStage: addProfileCancel,
+			newStage:     addProfileName,
+			preInfoFlag:  true,
+			preIsErrInfo: true,
+			preInfoMsg:   "test",
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.activePane = testcase.activePane
+			profilePage.currentStage = testcase.currentStage
+			profilePage.infoFlag = testcase.preInfoFlag
+			profilePage.isErrInfo = testcase.preIsErrInfo
+			profilePage.infoMsg = testcase.preInfoMsg
+			profilePage.handleNewProfileTab(testcase.shift)
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.Equal(t, profilePage.infoFlag, testcase.postInfoFlag)
+			assert.Equal(t, profilePage.isErrInfo, testcase.postIsErrInfo)
+			assert.Equal(t, profilePage.infoMsg, testcase.postInfoMsg)
 		})
 	}
 }
