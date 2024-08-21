@@ -2,10 +2,12 @@ package tui
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/bento01dev/maggi/internal/data"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 )
@@ -715,6 +717,141 @@ func TestGenerateTitle(t *testing.T) {
 			res := profilePage.generateTitle()
 			assert.True(t, strings.Contains(res, testcase.stageTitleStr))
 			assert.Equal(t, strings.Contains(res, testcase.currentProfile.Name), testcase.shouldContainProfileName)
+		})
+	}
+}
+
+func TestHandleListProfilesEnter(t *testing.T) {
+	profilePaneTestcases := []struct {
+		name           string
+		profileList    list.Model
+		newPane        profilePagePane
+		newStage       profileStage
+		currentProfile *data.Profile
+		newUserFlow    profileUserFlow
+	}{
+		{
+			name:        "selecting add profile action",
+			profileList: GenerateList([]list.Item{profileItem{name: "Add", action: true}}, renderProfileItem, 30, 5),
+			newPane:     actionsPane,
+			newStage:    addProfileName,
+			newUserFlow: newProfile,
+		},
+		{
+			name:           "selecting a profile item",
+			profileList:    GenerateList([]list.Item{profileItem{name: "test", id: 1}}, renderProfileItem, 30, 5),
+			newPane:        actionsPane,
+			newStage:       chooseAction,
+			currentProfile: &data.Profile{ID: 1, Name: "test"},
+			// user flow is not set to list profile because its set at retrieve msg processing
+		},
+	}
+
+	for _, testcase := range profilePaneTestcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.activePane = profilesPane
+			profilePage.profileList = testcase.profileList
+			profilePage.profileList.Select(0)
+			profilePage.handleListProfilesEnter()
+
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
+			assert.Equal(t, profilePage.currentUserFlow, testcase.newUserFlow)
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.True(t, reflect.DeepEqual(profilePage.currentProfile, testcase.currentProfile))
+		})
+	}
+
+	actionPaneTestcases := []struct {
+		name        string
+		actionList  list.Model
+		newUserFlow profileUserFlow
+		infoFlag    bool
+		newStage    profileStage
+	}{
+		{
+			name:        "update profile should set the right stages and info flag",
+			infoFlag:    true,
+			newStage:    updateProfileName,
+			newUserFlow: updateProfile,
+			actionList:  GenerateList([]list.Item{actionItem{description: "update", next: updateProfile}}, renderActionItem, 30, 5),
+		},
+		{
+			name:        "delete profile should set the right stage",
+			newStage:    deleteProfileView,
+			newUserFlow: deleteProfile,
+			actionList:  GenerateList([]list.Item{actionItem{description: "delete", next: deleteProfile}}, renderActionItem, 30, 5),
+		},
+	}
+
+	for _, testcase := range actionPaneTestcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.activePane = actionsPane
+			profilePage.actionList = testcase.actionList
+			profilePage.actionList.Select(0)
+			profilePage.currentProfile = &data.Profile{Name: "test"}
+			profilePage.handleListProfilesEnter()
+
+			assert.Equal(t, profilePage.activePane, actionsPane)
+			assert.Equal(t, profilePage.currentUserFlow, testcase.newUserFlow)
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.Equal(t, profilePage.infoFlag, testcase.infoFlag)
+		})
+	}
+}
+
+func TestHandleNewProfileEnter(t *testing.T) {
+	testcases := []struct {
+		name              string
+		currentStage      profileStage
+		newStage          profileStage
+		userFlow          profileUserFlow
+		newPane           profilePagePane
+		profiles          []data.Profile
+		infoFlag          bool
+		isErrInfo         bool
+		infoMsg           string
+		textInputValue    string
+		newTextInputValue string
+	}{
+		{
+			name:              "add profile name should switch to profile confirm",
+			currentStage:      addProfileName,
+			newStage:          addProfileConfirm,
+			textInputValue:    "test",
+			newTextInputValue: "test",
+		},
+		{
+			name:         "add profile should check empty string in profile name entry before moving to next stage",
+			currentStage: addProfileName,
+			newStage:     addProfileName,
+			infoFlag:     true,
+			isErrInfo:    true,
+		},
+		{
+			name:           "add profile cancel should switch things out",
+			currentStage:   addProfileCancel,
+			newStage:       chooseAction,
+			textInputValue: "test",
+			userFlow:       listProfiles,
+			newPane:        profilesPane,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.currentStage = testcase.currentStage
+			profilePage.textInput.SetValue(testcase.textInputValue)
+			profilePage.handleNewProfileEnter()
+
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.Equal(t, profilePage.infoFlag, testcase.infoFlag)
+			assert.Equal(t, profilePage.isErrInfo, testcase.isErrInfo)
+			assert.Equal(t, profilePage.textInput.Value(), testcase.newTextInputValue)
+            assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
+            assert.Equal(t, profilePage.activePane, testcase.newPane)
 		})
 	}
 }
