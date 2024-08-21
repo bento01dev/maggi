@@ -850,8 +850,8 @@ func TestHandleNewProfileEnter(t *testing.T) {
 			assert.Equal(t, profilePage.infoFlag, testcase.infoFlag)
 			assert.Equal(t, profilePage.isErrInfo, testcase.isErrInfo)
 			assert.Equal(t, profilePage.textInput.Value(), testcase.newTextInputValue)
-            assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
-            assert.Equal(t, profilePage.activePane, testcase.newPane)
+			assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
 		})
 	}
 }
