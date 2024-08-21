@@ -2,6 +2,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/bento01dev/maggi/internal/data"
@@ -460,6 +461,260 @@ func TestHandleNewProfileTab(t *testing.T) {
 			assert.Equal(t, profilePage.infoFlag, testcase.postInfoFlag)
 			assert.Equal(t, profilePage.isErrInfo, testcase.postIsErrInfo)
 			assert.Equal(t, profilePage.infoMsg, testcase.postInfoMsg)
+		})
+	}
+}
+
+func TestHandleUpdateProfileTab(t *testing.T) {
+	testcases := []struct {
+		name          string
+		shift         bool
+		activePane    profilePagePane
+		newPane       profilePagePane
+		currentStage  profileStage
+		newStage      profileStage
+		preInfoFlag   bool
+		preIsErrInfo  bool
+		preInfoMsg    string
+		postInfoFlag  bool
+		postIsErrInfo bool
+		postInfoMsg   string
+	}{
+		{
+			name:       "shift tab to actions pane when in profile pane",
+			shift:      true,
+			activePane: profilesPane,
+			newPane:    actionsPane,
+		},
+		{
+			name:         "shift tab to profiles pane and reset info when current stage is profile name in actions pane",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      profilesPane,
+			currentStage: updateProfileName,
+			newStage:     updateProfileName,
+			preInfoFlag:  true,
+			preIsErrInfo: true,
+			preInfoMsg:   "test",
+		},
+		{
+			name:         "shift tab to stage profile name when current stage is profile confirm in actions pane",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: updateProfileConfirm,
+			newStage:     updateProfileName,
+		},
+		{
+			name:         "shift tab to stage profile confirm when current stage is profile cancel in actions pane",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: updateProfileCancel,
+			newStage:     updateProfileConfirm,
+		},
+		{
+			name:       "tab to actions pane when currently in profiles pane",
+			activePane: profilesPane,
+			newPane:    actionsPane,
+		},
+		{
+			name:         "tab to profile confirm stage when the current stage is profile name in actions pane",
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: updateProfileName,
+			newStage:     updateProfileConfirm,
+		},
+		{
+			name:         "tab to profile cancel stage when the current stage is profile confirm in actions pane",
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: updateProfileConfirm,
+			newStage:     updateProfileCancel,
+		},
+		{
+			name:         "tab to profiles pane and reset info when current stage is profile cancel in actions pane",
+			activePane:   actionsPane,
+			newPane:      profilesPane,
+			currentStage: updateProfileCancel,
+			newStage:     updateProfileName,
+			preInfoFlag:  true,
+			preIsErrInfo: true,
+			preInfoMsg:   "test",
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.activePane = testcase.activePane
+			profilePage.currentStage = testcase.currentStage
+			profilePage.infoFlag = testcase.preInfoFlag
+			profilePage.isErrInfo = testcase.preIsErrInfo
+			profilePage.infoMsg = testcase.preInfoMsg
+			profilePage.handleUpdateProfileTab(testcase.shift)
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.Equal(t, profilePage.infoFlag, testcase.postInfoFlag)
+			assert.Equal(t, profilePage.isErrInfo, testcase.postIsErrInfo)
+			assert.Equal(t, profilePage.infoMsg, testcase.postInfoMsg)
+		})
+	}
+}
+
+func TestHandleDeleteProfileTab(t *testing.T) {
+	testcases := []struct {
+		name         string
+		shift        bool
+		activePane   profilePagePane
+		newPane      profilePagePane
+		currentStage profileStage
+		newStage     profileStage
+	}{
+		{
+			name:       "shift tab on profiles pane should switcht to actions pane",
+			shift:      true,
+			activePane: profilesPane,
+			newPane:    actionsPane,
+		},
+		{
+			name:         "shift tab in current stage delete profile view should switch active pane to profile pane",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      profilesPane,
+			currentStage: deleteProfileView,
+			newStage:     deleteProfileView,
+		},
+		{
+			name:         "shift tab in current stage delete profile confirm should switch stage to delete profile view",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: deleteProfileConfirm,
+			newStage:     deleteProfileView,
+		},
+		{
+			name:         "shift tab in current stage delete profile cancel should switch stage to delete profile confirm",
+			shift:        true,
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: deleteProfileCancel,
+			newStage:     deleteProfileConfirm,
+		},
+		{
+			name:       "tab on profiles pane should switch to actions pane",
+			activePane: profilesPane,
+			newPane:    actionsPane,
+		},
+		{
+			name:         "tab in current stage delete profile view should switch stage to delete profile confirm",
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: deleteProfileView,
+			newStage:     deleteProfileConfirm,
+		},
+		{
+			name:         "tab in current stage delete profile confirm should switch stage to delete profile cancel",
+			activePane:   actionsPane,
+			newPane:      actionsPane,
+			currentStage: deleteProfileConfirm,
+			newStage:     deleteProfileCancel,
+		},
+		{
+			name:         "tab in current stage delete profile cancel should switch stage to delete profile view and switch active pane to profiles pane",
+			activePane:   actionsPane,
+			newPane:      profilesPane,
+			currentStage: deleteProfileCancel,
+			newStage:     deleteProfileView,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.activePane = testcase.activePane
+			profilePage.currentStage = testcase.currentStage
+			profilePage.handleDeleteProfileTab(testcase.shift)
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+		})
+	}
+}
+
+func TestHandleEsc(t *testing.T) {
+	t.Run("handle esc should reset the fields from any stage", func(t *testing.T) {
+		profilePage := NewProfilePage(profileModelStub{})
+		profilePage.currentUserFlow = updateProfile
+		profilePage.activePane = actionsPane
+		profilePage.textInput.SetValue("test")
+		profilePage.infoMsg = "test"
+		profilePage.isErrInfo = true
+		profilePage.infoFlag = true
+		profilePage.actionsStyle = profilePage.actionsStyle.Copy().BorderForeground(green)
+		profilePage.profilesStyle = profilePage.profilesStyle.Copy().BorderForeground(muted)
+
+		profilePage.handleEsc()
+		assert.Equal(t, profilePage.currentUserFlow, listProfiles)
+		assert.Equal(t, profilePage.activePane, profilesPane)
+		assert.Equal(t, profilePage.textInput.Value(), "")
+		assert.Equal(t, profilePage.infoMsg, "")
+		assert.Equal(t, profilePage.actionsStyle.GetBorderBottomForeground(), muted)
+		assert.Equal(t, profilePage.actionsStyle.GetBorderTopForeground(), muted)
+		assert.Equal(t, profilePage.actionsStyle.GetBorderLeftForeground(), muted)
+		assert.Equal(t, profilePage.actionsStyle.GetBorderRightForeground(), muted)
+		assert.Equal(t, profilePage.profilesStyle.GetBorderBottomForeground(), green)
+		assert.Equal(t, profilePage.profilesStyle.GetBorderTopForeground(), green)
+		assert.Equal(t, profilePage.profilesStyle.GetBorderLeftForeground(), green)
+		assert.Equal(t, profilePage.profilesStyle.GetBorderRightForeground(), green)
+		assert.False(t, profilePage.infoFlag)
+		assert.False(t, profilePage.isErrInfo)
+	})
+}
+
+func TestGenerateTitle(t *testing.T) {
+	testcases := []struct {
+		name                     string
+		currentUserFlow          profileUserFlow
+		currentProfile           data.Profile
+		shouldContainProfileName bool
+		stageTitleStr            string
+	}{
+		{
+			name:            "List profiles should just say Profiles",
+			currentUserFlow: listProfiles,
+			currentProfile:  data.Profile{Name: "test"}, //technically current profile wont be set. just to not fail test with "" check.
+			stageTitleStr:   "Profiles",
+		},
+		{
+			name:            "New profiles should just say New Profile",
+			currentUserFlow: newProfile,
+			currentProfile:  data.Profile{Name: "test"},
+			stageTitleStr:   "New Profile",
+		},
+		{
+			name:                     "Update profile should say Update Profile and have the profile name",
+			currentUserFlow:          updateProfile,
+			currentProfile:           data.Profile{Name: "test"},
+			shouldContainProfileName: true,
+			stageTitleStr:            "Update Profile",
+		},
+		{
+			name:                     "Delete profile should say Delete Profile and have the profile name",
+			currentUserFlow:          deleteProfile,
+			currentProfile:           data.Profile{Name: "test"},
+			shouldContainProfileName: true,
+			stageTitleStr:            "Delete Profile",
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.currentUserFlow = testcase.currentUserFlow
+			profilePage.currentProfile = &testcase.currentProfile
+			res := profilePage.generateTitle()
+			assert.True(t, strings.Contains(res, testcase.stageTitleStr))
+			assert.Equal(t, strings.Contains(res, testcase.currentProfile.Name), testcase.shouldContainProfileName)
 		})
 	}
 }

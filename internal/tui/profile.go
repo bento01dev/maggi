@@ -764,6 +764,8 @@ func (p *ProfilePage) handleEsc() {
 	p.updateProfileStyle()
 	p.textInput.SetValue("")
 	p.infoMsg = ""
+	p.isErrInfo = false
+	p.infoFlag = false
 }
 
 func (p *ProfilePage) handleEvent(msg tea.Msg) tea.Cmd {
