@@ -811,7 +811,6 @@ func TestHandleNewProfileEnter(t *testing.T) {
 		profiles          []data.Profile
 		infoFlag          bool
 		isErrInfo         bool
-		infoMsg           string
 		textInputValue    string
 		newTextInputValue string
 	}{
@@ -837,6 +836,22 @@ func TestHandleNewProfileEnter(t *testing.T) {
 			userFlow:       listProfiles,
 			newPane:        profilesPane,
 		},
+		{
+			name:         "create profile and switch flows and stages if name is not duplicate",
+			userFlow:     listProfiles,
+			currentStage: addProfileConfirm,
+			newStage:     chooseAction,
+			newPane:      profilesPane,
+		},
+		{
+			name:           "create profile should display error for duplicates",
+			currentStage:   addProfileConfirm,
+			newStage:       addProfileName,
+			profiles:       []data.Profile{{ID: 1, Name: "test"}},
+			textInputValue: "test",
+			infoFlag:       true,
+			isErrInfo:      true,
+		},
 	}
 
 	for _, testcase := range testcases {
@@ -844,6 +859,7 @@ func TestHandleNewProfileEnter(t *testing.T) {
 			profilePage := NewProfilePage(profileModelStub{})
 			profilePage.currentStage = testcase.currentStage
 			profilePage.textInput.SetValue(testcase.textInputValue)
+			profilePage.profiles = testcase.profiles
 			profilePage.handleNewProfileEnter()
 
 			assert.Equal(t, profilePage.currentStage, testcase.newStage)
@@ -852,6 +868,121 @@ func TestHandleNewProfileEnter(t *testing.T) {
 			assert.Equal(t, profilePage.textInput.Value(), testcase.newTextInputValue)
 			assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
 			assert.Equal(t, profilePage.activePane, testcase.newPane)
+		})
+	}
+}
+
+func TestHandleUpdateProfileEnter(t *testing.T) {
+	testcases := []struct {
+		name              string
+		currentStage      profileStage
+		newStage          profileStage
+		userFlow          profileUserFlow
+		newPane           profilePagePane
+		profiles          []data.Profile
+		currentProfile    *data.Profile
+		infoFlag          bool
+		isErrInfo         bool
+		textInputValue    string
+		newTextInputValue string
+	}{
+		{
+			name:           "switch stage to confirm if profile name is fine",
+			currentStage:   updateProfileName,
+			newStage:       updateProfileConfirm,
+			currentProfile: &data.Profile{ID: 1, Name: "test"},
+			textInputValue: "test1",
+		},
+		{
+			name:           "show error message when update profile name is a duplicate",
+			currentStage:   updateProfileName,
+			newStage:       updateProfileName,
+			currentProfile: &data.Profile{ID: 1, Name: "test"},
+			textInputValue: "test",
+			infoFlag:       true,
+			isErrInfo:      true,
+		},
+		{
+			name:         "cancel should reset everything as needed",
+			currentStage: updateProfileCancel,
+			newStage:     chooseAction,
+			userFlow:     listProfiles,
+			newPane:      profilesPane,
+		},
+		{
+			name:         "update profile should update the states if name checks pass",
+			currentStage: updateProfileConfirm,
+			newStage:     chooseAction,
+			userFlow:     listProfiles,
+			newPane:      profilesPane,
+		},
+		{
+			name:           "update should fail if name is duplicate",
+			currentStage:   updateProfileConfirm,
+			newStage:       updateProfileName,
+			infoFlag:       true,
+			isErrInfo:      true,
+			textInputValue: "test",
+			profiles:       []data.Profile{{ID: 1, Name: "test"}},
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.currentStage = testcase.currentStage
+			profilePage.textInput.SetValue(testcase.textInputValue)
+			profilePage.profiles = testcase.profiles
+			profilePage.currentProfile = testcase.currentProfile
+			profilePage.handleUpdateProfileEnter()
+
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.Equal(t, profilePage.infoFlag, testcase.infoFlag)
+			assert.Equal(t, profilePage.isErrInfo, testcase.isErrInfo)
+			assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
+		})
+	}
+}
+
+func TestHandleDeleteProfileEnter(t *testing.T) {
+	testcases := []struct {
+		name           string
+		currentStage   profileStage
+		newStage       profileStage
+		currentProfile *data.Profile
+		newProfile     *data.Profile
+		newPane        profilePagePane
+		userFlow       profileUserFlow
+	}{
+		{
+			name:         "switch to confirm when viewing",
+			currentStage: deleteProfileView,
+			newStage:     deleteProfileConfirm,
+            currentProfile: &data.Profile{ID: 1, Name: "test"},
+            newProfile: &data.Profile{ID: 1, Name: "test"},
+		},
+		{
+			name: "clear out things when user cancels delete",
+            currentStage: deleteProfileCancel,
+            newStage: chooseAction,
+            currentProfile: &data.Profile{ID: 1, Name: "test"},
+            newPane: profilesPane,
+            userFlow: listProfiles,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			profilePage := NewProfilePage(profileModelStub{})
+			profilePage.currentStage = testcase.currentStage
+			profilePage.currentProfile = testcase.currentProfile
+			profilePage.handleDeleteProfileEnter()
+
+			assert.Equal(t, profilePage.currentStage, testcase.newStage)
+			assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
+			assert.Equal(t, profilePage.activePane, testcase.newPane)
+            assert.True(t, reflect.DeepEqual(profilePage.currentProfile, testcase.newProfile))
 		})
 	}
 }
