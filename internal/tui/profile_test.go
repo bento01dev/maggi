@@ -956,19 +956,19 @@ func TestHandleDeleteProfileEnter(t *testing.T) {
 		userFlow       profileUserFlow
 	}{
 		{
-			name:         "switch to confirm when viewing",
-			currentStage: deleteProfileView,
-			newStage:     deleteProfileConfirm,
-            currentProfile: &data.Profile{ID: 1, Name: "test"},
-            newProfile: &data.Profile{ID: 1, Name: "test"},
+			name:           "switch to confirm when viewing",
+			currentStage:   deleteProfileView,
+			newStage:       deleteProfileConfirm,
+			currentProfile: &data.Profile{ID: 1, Name: "test"},
+			newProfile:     &data.Profile{ID: 1, Name: "test"},
 		},
 		{
-			name: "clear out things when user cancels delete",
-            currentStage: deleteProfileCancel,
-            newStage: chooseAction,
-            currentProfile: &data.Profile{ID: 1, Name: "test"},
-            newPane: profilesPane,
-            userFlow: listProfiles,
+			name:           "clear out things when user cancels delete",
+			currentStage:   deleteProfileCancel,
+			newStage:       chooseAction,
+			currentProfile: &data.Profile{ID: 1, Name: "test"},
+			newPane:        profilesPane,
+			userFlow:       listProfiles,
 		},
 	}
 
@@ -982,7 +982,7 @@ func TestHandleDeleteProfileEnter(t *testing.T) {
 			assert.Equal(t, profilePage.currentStage, testcase.newStage)
 			assert.Equal(t, profilePage.currentUserFlow, testcase.userFlow)
 			assert.Equal(t, profilePage.activePane, testcase.newPane)
-            assert.True(t, reflect.DeepEqual(profilePage.currentProfile, testcase.newProfile))
+			assert.True(t, reflect.DeepEqual(profilePage.currentProfile, testcase.newProfile))
 		})
 	}
 }
