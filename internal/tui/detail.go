@@ -60,11 +60,11 @@ const (
 )
 
 type detailModel interface {
-    GetAll() ([]data.Detail, error)
-    Add(key string, value string, detailType data.DetailType, profileID int) (data.Detail, error)
-    Update(detail data.Detail, key string, value string) (data.Detail, error)
-    Delete(detail data.Detail) error
-    DeleteAll(profileID int) error
+	GetAll() ([]data.Detail, error)
+	Add(key string, value string, detailType data.DetailType, profileID int) (data.Detail, error)
+	Update(detail data.Detail, key string, value string) (data.Detail, error)
+	Delete(detail data.Detail) error
+	DeleteAll(profileID int) error
 }
 
 type DetailPage struct {
