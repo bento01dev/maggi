@@ -27,7 +27,7 @@ type pageType int
 const (
 	start pageType = iota
 	profile
-	home
+	detail
 	issue
 )
 
@@ -84,7 +84,7 @@ func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, heigh
 type MaggiModel struct {
 	currentPage pageType
 	pages       map[pageType]Page
-	profile     string
+	profile     data.Profile
 	err         error
 }
 
@@ -93,6 +93,7 @@ func NewMaggiModel(debugFlag bool, dataModel data.DataModel) *MaggiModel {
 		pages: map[pageType]Page{
 			issue:   NewIssuePage(debugFlag),
 			profile: NewProfilePage(dataModel.Profiles),
+			detail:  NewDetailPage(dataModel.Details),
 		},
 	}
 }
@@ -143,6 +144,8 @@ func (m *MaggiModel) pageInitCmd() tea.Cmd {
 	switch m.currentPage {
 	case profile:
 		msg = ProfileStartMsg{}
+	case detail:
+		msg = DetailStartMsg{currentProfile: m.profile}
 	}
 	return func() tea.Msg {
 		return msg

@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,19 +18,37 @@ const (
 
 const (
 	profileDDL = `
+    BEGIN;
     CREATE TABLE IF NOT EXISTS profiles (
     id INTEGER NOT NULL PRIMARY KEY,
     name STRING NOT NULL
-    );`
+    );
+    CREATE INDEX IF NOT EXISTS profile_name_idx ON profiles (name);
+    COMMIT;`
+	detailsDDL = `
+    BEGIN;
+    CREATE TABLE IF NOT EXISTS details (
+    id INTEGER NOT NULL PRIMARY KEY,
+    key STRING NOT NULL,
+    value STRING NOT NULL,
+    type STRING CHECK( type IN ('alias', 'env') ) NOT NULL,
+    profile_id INTEGER NOT NULL,
+    FOREIGN KEY(profile_id) REFERENCES profiles(id)
+    );
+    CREATE INDEX IF NOT EXISTS details_profile_idx ON details (profile_id);
+    CREATE INDEX IF NOT EXISTS details_type_idx ON details (type);
+    COMMIT;`
 )
 
 type DataModel struct {
 	Profiles *Profiles
+	Details  *Details
 }
 
 func NewDataModel(db *sql.DB) DataModel {
 	return DataModel{
 		Profiles: &Profiles{db: db},
+		Details:  &Details{db: db},
 	}
 }
 
@@ -50,9 +69,10 @@ func Setup() (*sql.DB, error) {
 	}
 
 	dbPath := filepath.Join(maggiLoc, dbFileName)
+	pathWithParams := fmt.Sprintf("file:%s?_foreign_keys=true", dbPath)
 
 	var db *sql.DB
-	db, err = sql.Open("sqlite3", dbPath)
+	db, err = sql.Open("sqlite3", pathWithParams)
 	if err != nil {
 		return db, err
 	}
@@ -65,6 +85,10 @@ func Setup() (*sql.DB, error) {
 	}
 
 	if _, err := db.Exec(profileDDL); err != nil {
+		return nil, err
+	}
+
+	if _, err := db.Exec(detailsDDL); err != nil {
 		return nil, err
 	}
 

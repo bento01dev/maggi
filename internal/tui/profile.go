@@ -18,11 +18,11 @@ import (
 type ProfileStartMsg struct{}
 
 type ProfileDoneMsg struct {
-	profile string
+	profile data.Profile
 }
 
 func (p ProfileDoneMsg) Next() pageType {
-	return home
+	return detail
 }
 
 type retrieveMsg struct {
@@ -570,8 +570,6 @@ func (p *ProfilePage) handleEnter() tea.Cmd {
 		return p.handleListProfilesEnter()
 	case newProfile:
 		return p.handleNewProfileEnter()
-	case viewProfile:
-		return p.handleViewProfileEnter()
 	case updateProfile:
 		return p.handleUpdateProfileEnter()
 	case deleteProfile:
@@ -617,6 +615,14 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		case deleteProfile:
 			p.currentStage = deleteProfileView
+		case viewProfile:
+			return func() tea.Msg {
+				item, ok := p.profileList.SelectedItem().(profileItem)
+				if !ok {
+					return errors.New("unknown item in list")
+				}
+				return ProfileDoneMsg{profile: data.Profile{ID: item.id, Name: item.name}}
+			}
 		}
 		return nil
 	}
@@ -668,16 +674,6 @@ func (p *ProfilePage) handleNewProfileEnter() tea.Cmd {
 		return nil
 	}
 	return nil
-}
-
-func (p *ProfilePage) handleViewProfileEnter() tea.Cmd {
-	return func() tea.Msg {
-		item, ok := p.profileList.SelectedItem().(profileItem)
-		if !ok {
-			return errors.New("unknown item in list")
-		}
-		return ProfileDoneMsg{profile: item.name}
-	}
 }
 
 func (p *ProfilePage) handleUpdateProfileEnter() tea.Cmd {
@@ -1075,8 +1071,10 @@ func (p *ProfilePage) View() string {
 		return p.viewUpdateProfile()
 	case deleteProfile:
 		return p.viewDeleteProfile()
+	default:
+		// this should never get invoked. just adding here till debugging is done
+		return "profile page.."
 	}
-	return "profile page.."
 }
 
 func (p *ProfilePage) UpdateSize(width, height int) {
