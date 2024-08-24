@@ -21,7 +21,7 @@ type Details struct {
 	db *sql.DB
 }
 
-func (d *Details) GetAll() ([]Detail, error) {
+func (d *Details) GetAll(profileId int) ([]Detail, error) {
 	return []Detail{}, nil
 }
 
