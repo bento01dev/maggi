@@ -20,10 +20,11 @@ type retrieveDetailsMsg struct {
 }
 
 const (
-	defaultDPWidth      int = 120
-	defaultSideBarWidth int = 30
-	defaultDisplayWidth int = 90
-	defaultDPHeight     int = 20
+	defaultDPWidth       int = 120
+	defaultSideBarWidth  int = 30
+	defaultDisplayWidth  int = 90
+	defaultDPHeight      int = 20
+	defaultSideBarHeight int = 5
 )
 
 type detailsUserFlow int
@@ -42,6 +43,7 @@ type detailPagePane int
 const (
 	envPane detailPagePane = iota
 	aliasPane
+	detailDisplayPane
 	detailActionPane
 )
 
@@ -58,16 +60,48 @@ type detailStage int
 const (
 	detailStageDefault detailStage = iota
 	chooseDetailAction
-	addDetailName
+	addDetailKey
+	addDetailValue
 	addDetailConfirm
 	addDetailCancel
-	updateDetailName
+	updateDetailKey
+	updateDetailValue
 	updateDetailConfirm
 	updateDetailCancel
 	deleteDetailView
 	deleteDetailConfirm
 	deleteDetailCancel
 )
+
+type detailActionItem struct {
+	next        detailsUserFlow
+	description string
+}
+
+func (a detailActionItem) FilterValue() string { return "" }
+func renderDetailActionItem(i list.Item) string {
+	a, ok := i.(detailActionItem)
+	if !ok {
+		return ""
+	}
+	return a.description
+}
+
+type detailItem struct {
+	id     int
+	key    string
+	value  string
+	action bool
+}
+
+func (d detailItem) FilterValue() string { return "" }
+func renderDetailItem(i list.Item) string {
+	p, ok := i.(detailItem)
+	if !ok {
+		return ""
+	}
+	return p.key
+}
 
 type detailHelpKeys struct {
 	ToggleView key.Binding
@@ -112,9 +146,12 @@ type DetailPage struct {
 	headingStyle      lipgloss.Style
 	issuesStyle       lipgloss.Style
 	actionsStyle      lipgloss.Style
-	detailsStyle      lipgloss.Style
+	aliasStyle        lipgloss.Style
+	envStyle          lipgloss.Style
+	displayStyle      lipgloss.Style
 	aliasList         list.Model
 	envList           list.Model
+	actionsList       list.Model
 	keyInput          textinput.Model
 	valueInput        textinput.Model
 	highlightedButton lipgloss.Style
@@ -163,10 +200,11 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		),
 	}
 
-	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(defaultActionsWidth).UnsetPadding()
-	detailStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultProfileWidth).UnsetPadding()
+	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(defaultDisplayWidth).UnsetPadding()
+	displayStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultDisplayWidth).UnsetPadding()
+	aliasStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultSideBarWidth).UnsetPadding()
+	envStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultSideBarWidth).UnsetPadding()
 	issuesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).UnsetPadding().BorderForeground(red)
-	actions := []string{"Update Detail", "Delete Detail"}
 	titleStyle := lipgloss.NewStyle().Foreground(green)
 	headingStyle := lipgloss.NewStyle().Foreground(blue)
 
@@ -192,21 +230,18 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		helpMenu:          helpMenu,
 		keys:              keys,
 		actionsStyle:      actionsStyle,
-		detailsStyle:      detailStyle,
-		actions:           actions,
 		titleStyle:        titleStyle,
 		headingStyle:      headingStyle,
 		issuesStyle:       issuesStyle,
+		displayStyle:      displayStyle,
+		aliasStyle:        aliasStyle,
+		envStyle:          envStyle,
 		keyInput:          keyInput,
 		valueInput:        valueInput,
 		highlightedButton: confirmButton,
 		mutedButton:       cancelButton,
 		deleteButton:      deleteButton,
 	}
-}
-
-func (d *DetailPage) Init() tea.Cmd {
-	return nil
 }
 
 func (d *DetailPage) getDetails() tea.Msg {
@@ -217,13 +252,84 @@ func (d *DetailPage) getDetails() tea.Msg {
 	return retrieveDetailsMsg{details: res}
 }
 
-func (d *DetailPage) setAliasList() {
-}
-
-func (d *DetailPage) setEnvList() {
+func (d *DetailPage) setDetailLists() {
+	aliasList := []list.Item{}
+	envList := []list.Item{}
+	aliasList = append(aliasList, detailItem{key: "Add alias...", action: true})
+	envList = append(envList, detailItem{key: "Add env var...", action: true})
+	for _, detail := range d.details {
+		switch detail.DetailType {
+		case data.AliasDetail:
+			aliasList = append(aliasList, detailItem{id: detail.ID, key: detail.Key, value: detail.Value})
+		case data.EnvDetail:
+			envList = append(envList, detailItem{id: detail.ID, key: detail.Key, value: detail.Value})
+		}
+	}
+	d.aliasList = GenerateList(aliasList, renderDetailItem, defaultSideBarWidth, defaultSideBarHeight)
+	d.envList = GenerateList(envList, renderDetailItem, defaultSideBarWidth, defaultSideBarHeight)
+	d.updatePaneStyles()
 }
 
 func (d *DetailPage) setActionsList() {
+	var actionItems []list.Item
+	switch d.detailType {
+	case detailTypeAlias:
+		actionItems = []list.Item{
+			detailActionItem{
+				description: "Update Alias",
+				next:        updateDetail,
+			},
+			detailActionItem{
+				description: "Delete Alias",
+				next:        deleteDetail,
+			},
+		}
+	case detailTypeEnv:
+		actionItems = []list.Item{
+			detailActionItem{
+				description: "Update Env",
+				next:        updateDetail,
+			},
+			detailActionItem{
+				description: "Delete Env",
+				next:        deleteDetail,
+			},
+		}
+	}
+	d.actionsList = GenerateList(actionItems, renderDetailActionItem, defaultDisplayWidth, 2)
+	d.updatePaneStyles()
+}
+
+func (d *DetailPage) updatePaneStyles() {
+	displayStyle := d.displayStyle.Copy().BorderForeground(muted)
+	actionsStyle := d.actionsStyle.Copy().BorderForeground(muted)
+	aliasStyle := d.aliasStyle.Copy().BorderForeground(muted)
+	envStyle := d.envStyle.Copy().BorderForeground(muted)
+
+	switch d.activePane {
+	case envPane:
+		envStyle = envStyle.Copy().BorderForeground(green)
+	case aliasPane:
+		aliasStyle = aliasStyle.Copy().BorderForeground(green)
+	case detailDisplayPane:
+		displayStyle = displayStyle.Copy().BorderForeground(green)
+	case detailActionPane:
+		actionsStyle = actionsStyle.Copy().BorderForeground(green)
+	}
+
+	d.displayStyle = displayStyle
+	d.actionsStyle = actionsStyle
+	d.aliasStyle = aliasStyle
+	d.envStyle = envStyle
+}
+
+func (d *DetailPage) viewListDetails() string {
+
+	return ""
+}
+
+func (d *DetailPage) Init() tea.Cmd {
+	return nil
 }
 
 func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -243,14 +349,17 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.currentUserFlow = listDetails
 		d.details = msg.details
 		d.activePane = aliasPane
-		d.setAliasList()
-		d.setEnvList()
+		d.setDetailLists()
 		d.setActionsList()
 	}
 	return d, nil
 }
 
 func (d *DetailPage) View() string {
+	switch d.currentUserFlow {
+	case listDetails:
+		return d.viewListDetails()
+	}
 	return "detail page.."
 }
 
