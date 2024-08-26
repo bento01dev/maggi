@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/bento01dev/maggi/internal/data"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -23,6 +26,7 @@ const (
 	defaultDPWidth       int = 120
 	defaultSideBarWidth  int = 30
 	defaultDisplayWidth  int = 90
+	defaultDisplayHeight int = 7
 	defaultDPHeight      int = 20
 	defaultSideBarHeight int = 5
 )
@@ -131,6 +135,7 @@ type detailModel interface {
 }
 
 type DetailPage struct {
+	newDetailOption   bool
 	width             int
 	height            int
 	currentUserFlow   detailsUserFlow
@@ -140,6 +145,7 @@ type DetailPage struct {
 	currentProfile    data.Profile
 	detailModel       detailModel
 	details           []data.Detail
+	currentDetail     data.Detail
 	helpMenu          help.Model
 	keys              detailHelpKeys
 	titleStyle        lipgloss.Style
@@ -201,7 +207,7 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	}
 
 	actionsStyle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).Width(defaultDisplayWidth).UnsetPadding()
-	displayStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultDisplayWidth).UnsetPadding()
+	displayStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultDisplayWidth).Height(defaultDisplayHeight).UnsetPadding()
 	aliasStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultSideBarWidth).UnsetPadding()
 	envStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).Width(defaultSideBarWidth).UnsetPadding()
 	issuesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).UnsetPadding().BorderForeground(red)
@@ -245,9 +251,40 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 }
 
 func (d *DetailPage) getDetails() tea.Msg {
-	res, err := d.detailModel.GetAll(d.currentProfile.ID)
-	if err != nil {
-		return retrieveDetailsMsg{err: err}
+	// res, err := d.detailModel.GetAll(d.currentProfile.ID)
+	// if err != nil {
+	// 	return retrieveDetailsMsg{err: err}
+	// }
+	// return retrieveDetailsMsg{details: res}
+	res := []data.Detail{
+		{
+			ID:         1,
+			Key:        "ENV_1",
+			Value:      "VALUE_1",
+			DetailType: data.EnvDetail,
+			ProfileID:  1,
+		},
+		{
+			ID:         2,
+			Key:        "ENV_2",
+			Value:      "VALUE_2",
+			DetailType: data.EnvDetail,
+			ProfileID:  1,
+		},
+		{
+			ID:         3,
+			Key:        "ALIAS_1",
+			Value:      "VALUE_1",
+			DetailType: data.AliasDetail,
+			ProfileID:  1,
+		},
+		{
+			ID:         4,
+			Key:        "ALIAS_2",
+			Value:      "VALUE_2",
+			DetailType: data.AliasDetail,
+			ProfileID:  1,
+		},
 	}
 	return retrieveDetailsMsg{details: res}
 }
@@ -323,9 +360,131 @@ func (d *DetailPage) updatePaneStyles() {
 	d.envStyle = envStyle
 }
 
-func (d *DetailPage) viewListDetails() string {
+func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	switch d.activePane {
+	case envPane:
+		d.envList, cmd = d.envList.Update(msg)
+		item, ok := d.envList.SelectedItem().(detailItem)
+		if !ok {
+			return tea.Quit
+		}
+		if item.action {
+			d.newDetailOption = true
+		} else {
+			d.newDetailOption = false
+		}
+	case aliasPane:
+		d.aliasList, cmd = d.aliasList.Update(msg)
+		item, ok := d.aliasList.SelectedItem().(detailItem)
+		if !ok {
+			return tea.Quit
+		}
+		if item.action {
+			d.newDetailOption = true
+		} else {
+			d.newDetailOption = false
+		}
+	}
+	return cmd
+}
 
-	return ""
+func (d *DetailPage) generateTitle() string {
+	first := strings.Repeat("-", 3)
+	var second string
+	switch d.currentUserFlow {
+	case listDetails:
+		second = " Details "
+	case newDetail:
+		switch d.detailType {
+		case detailTypeEnv:
+			second = " New Env "
+		case detailTypeAlias:
+			second = " New Alias "
+		}
+	case updateDetail:
+		switch d.detailType {
+		case detailTypeEnv:
+			second = fmt.Sprintf(" %s | Update Env | %s ", d.currentProfile.Name, d.currentDetail.Key)
+		case detailTypeAlias:
+			second = fmt.Sprintf(" %s | Update Alias | %s ", d.currentProfile.Name, d.currentDetail.Key)
+		}
+	case deleteDetail:
+		switch d.detailType {
+		case detailTypeEnv:
+			second = fmt.Sprintf(" %s | Delete Env | %s ", d.currentProfile.Name, d.currentDetail.Key)
+		case detailTypeAlias:
+			second = fmt.Sprintf(" %s | Delete Alias | %s ", d.currentProfile.Name, d.currentDetail.Key)
+		}
+	}
+	third := strings.Repeat("-", (defaultDPWidth - (len(second) + 3)))
+	return first + second + third
+}
+
+func (d *DetailPage) generateHeading(name string) string {
+	first := strings.Repeat("-", 3)
+	second := fmt.Sprintf(" %s ", name)
+	third := strings.Repeat("-", (defaultSideBarWidth - (len(second) + 3)))
+	return first + second + third
+}
+
+func (d *DetailPage) viewListDetails() string {
+	if d.newDetailOption {
+		return lipgloss.Place(
+			d.width,
+			d.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				d.titleStyle.Render(d.generateTitle()),
+				lipgloss.JoinHorizontal(
+					lipgloss.Left,
+					lipgloss.JoinVertical(
+						lipgloss.Center,
+						d.headingStyle.Render(d.generateHeading("Envs")),
+						d.envStyle.Render(d.envList.View()),
+						d.headingStyle.Render(d.generateHeading("Aliases")),
+						d.aliasStyle.Render(d.aliasList.View()),
+					),
+					lipgloss.JoinVertical(
+						lipgloss.Center,
+						"",
+						d.displayStyle.Render(""),
+					),
+				),
+				d.helpMenu.View(d.keys),
+			),
+		)
+	}
+
+	return lipgloss.Place(
+		d.width,
+		d.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			d.titleStyle.Render(d.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					d.headingStyle.Render(d.generateHeading("Envs")),
+					d.envStyle.Render(d.envList.View()),
+					d.headingStyle.Render(d.generateHeading("Aliases")),
+					d.aliasStyle.Render(d.aliasList.View()),
+				),
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					"",
+					d.displayStyle.Render(""),
+					d.actionsStyle.Render(d.actionsList.View()),
+				),
+			),
+			d.helpMenu.View(d.keys),
+		),
+	)
 }
 
 func (d *DetailPage) Init() tea.Cmd {
@@ -348,11 +507,14 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		d.currentUserFlow = listDetails
 		d.details = msg.details
-		d.activePane = aliasPane
+		d.activePane = envPane
+		d.detailType = detailTypeEnv
+		d.newDetailOption = true
 		d.setDetailLists()
 		d.setActionsList()
 	}
-	return d, nil
+	cmd := d.handleEvent(msg)
+	return d, cmd
 }
 
 func (d *DetailPage) View() string {
