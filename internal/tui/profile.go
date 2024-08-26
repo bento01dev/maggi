@@ -616,7 +616,7 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 					return errors.New("unknown item in list")
 				}
 			}
-            p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
+			p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
 			p.infoFlag = true
 			p.infoMsg = fmt.Sprintf("You are trying to update %s with a new name. Please follow the instructions below.", p.currentProfile.Name)
 			p.currentStage = updateProfileName
@@ -629,7 +629,7 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 					return errors.New("unknown item in list")
 				}
 			}
-            p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
+			p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
 		case viewProfile:
 			return func() tea.Msg {
 				item, ok := p.profileList.SelectedItem().(profileItem)
