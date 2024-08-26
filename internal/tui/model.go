@@ -8,6 +8,7 @@ import (
 
 	"github.com/bento01dev/maggi/internal/data"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -74,9 +75,18 @@ func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, heigh
 	l := list.New(items, ListItemDelegate{RenderFunc: renderFunc}, width, height)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
+	l.SetShowFilter(filtering)
+	l.SetFilteringEnabled(filtering)
 	if filtering {
-		l.SetShowFilter(filtering)
-		l.SetFilteringEnabled(filtering)
+		valueInput := textinput.New()
+		valueInput.Placeholder = "Search.."
+		valueInput.CharLimit = 50
+		valueInput.Width = width
+		valueInput.Prompt = "> "
+		valueInput.PromptStyle = lipgloss.NewStyle().Foreground(blue)
+		valueInput.PlaceholderStyle = lipgloss.NewStyle().Foreground(muted)
+		valueInput.TextStyle = lipgloss.NewStyle().Foreground(blue)
+		l.FilterInput = valueInput
 	}
 	l.SetShowPagination(false)
 	l.SetShowHelp(false)

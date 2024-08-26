@@ -118,15 +118,16 @@ type detailHelpKeys struct {
 	Up         key.Binding
 	Down       key.Binding
 	Esc        key.Binding
+	Search     key.Binding
 }
 
 func (h detailHelpKeys) ShortHelp() []key.Binding {
-	return []key.Binding{h.ToggleView, h.Up, h.Down, h.Esc, h.Quit}
+	return []key.Binding{h.ToggleView, h.Search, h.Up, h.Down, h.Esc, h.Quit}
 }
 
 func (h detailHelpKeys) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{h.ToggleView, h.Up, h.Down},
+		{h.ToggleView, h.Search, h.Up, h.Down},
 		{h.Esc, h.Quit},
 	}
 }
@@ -192,6 +193,10 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		ToggleView: key.NewBinding(
 			key.WithKeys("<tab>"),
 			key.WithHelp("<tab>", "toggle panes"),
+		),
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("<ctrl+c>"),
@@ -372,7 +377,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 		d.envList, cmd = d.envList.Update(msg)
 		item, ok := d.envList.SelectedItem().(detailItem)
 		if !ok {
-			return tea.Quit
+			return nil
 		}
 		if item.action {
 			d.newDetailOption = true
@@ -383,7 +388,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 		d.aliasList, cmd = d.aliasList.Update(msg)
 		item, ok := d.aliasList.SelectedItem().(detailItem)
 		if !ok {
-			return tea.Quit
+			return nil
 		}
 		if item.action {
 			d.newDetailOption = true
