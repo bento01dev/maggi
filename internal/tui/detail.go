@@ -98,7 +98,12 @@ type detailItem struct {
 	action bool
 }
 
-func (d detailItem) FilterValue() string { return "" }
+func (d detailItem) FilterValue() string {
+	if d.action {
+		return ""
+	}
+	return d.key
+}
 func renderDetailItem(i list.Item) string {
 	p, ok := i.(detailItem)
 	if !ok {
@@ -167,7 +172,7 @@ type DetailPage struct {
 	actions           []string
 }
 
-//TODO: the styling elements and help menu are duplicates of what is in profile. de-duplicate if needed later.
+// TODO: the styling elements and help menu are duplicates of what is in profile. de-duplicate if needed later.
 func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
@@ -302,8 +307,8 @@ func (d *DetailPage) setDetailLists() {
 			envList = append(envList, detailItem{id: detail.ID, key: detail.Key, value: detail.Value})
 		}
 	}
-	d.aliasList = GenerateList(aliasList, renderDetailItem, defaultSideBarWidth, defaultSideBarHeight)
-	d.envList = GenerateList(envList, renderDetailItem, defaultSideBarWidth, defaultSideBarHeight)
+	d.aliasList = GenerateList(aliasList, renderDetailItem, defaultSideBarWidth, defaultSideBarHeight, true)
+	d.envList = GenerateList(envList, renderDetailItem, defaultSideBarWidth, defaultSideBarHeight, true)
 	d.updatePaneStyles()
 }
 
@@ -333,7 +338,7 @@ func (d *DetailPage) setActionsList() {
 			},
 		}
 	}
-	d.actionsList = GenerateList(actionItems, renderDetailActionItem, defaultDisplayWidth, 2)
+	d.actionsList = GenerateList(actionItems, renderDetailActionItem, defaultDisplayWidth, 2, false)
 	d.updatePaneStyles()
 }
 

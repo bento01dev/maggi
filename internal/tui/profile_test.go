@@ -732,14 +732,14 @@ func TestHandleListProfilesEnter(t *testing.T) {
 	}{
 		{
 			name:        "selecting add profile action",
-			profileList: GenerateList([]list.Item{profileItem{name: "Add", action: true}}, renderProfileItem, 30, 5),
+			profileList: GenerateList([]list.Item{profileItem{name: "Add", action: true}}, renderProfileItem, 30, 5, false),
 			newPane:     actionsPane,
 			newStage:    addProfileName,
 			newUserFlow: newProfile,
 		},
 		{
 			name:           "selecting a profile item",
-			profileList:    GenerateList([]list.Item{profileItem{name: "test", id: 1}}, renderProfileItem, 30, 5),
+			profileList:    GenerateList([]list.Item{profileItem{name: "test", id: 1}}, renderProfileItem, 30, 5, false),
 			newPane:        actionsPane,
 			newStage:       chooseAction,
 			currentProfile: &data.Profile{ID: 1, Name: "test"},
@@ -774,13 +774,13 @@ func TestHandleListProfilesEnter(t *testing.T) {
 			infoFlag:    true,
 			newStage:    updateProfileName,
 			newUserFlow: updateProfile,
-			actionList:  GenerateList([]list.Item{actionItem{description: "update", next: updateProfile}}, renderActionItem, 30, 5),
+			actionList:  GenerateList([]list.Item{actionItem{description: "update", next: updateProfile}}, renderActionItem, 30, 5, false),
 		},
 		{
 			name:        "delete profile should set the right stage",
 			newStage:    deleteProfileView,
 			newUserFlow: deleteProfile,
-			actionList:  GenerateList([]list.Item{actionItem{description: "delete", next: deleteProfile}}, renderActionItem, 30, 5),
+			actionList:  GenerateList([]list.Item{actionItem{description: "delete", next: deleteProfile}}, renderActionItem, 30, 5, false),
 		},
 	}
 

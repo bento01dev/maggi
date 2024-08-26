@@ -70,12 +70,14 @@ func (i ListItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	fmt.Fprint(w, styleFn(i.RenderFunc(listItem)))
 }
 
-func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, height int) list.Model {
+func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, height int, filtering bool) list.Model {
 	l := list.New(items, ListItemDelegate{RenderFunc: renderFunc}, width, height)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
-	l.SetShowFilter(false)
-	l.SetFilteringEnabled(false)
+	if filtering {
+		l.SetShowFilter(filtering)
+		l.SetFilteringEnabled(filtering)
+	}
 	l.SetShowPagination(false)
 	l.SetShowHelp(false)
 	return l

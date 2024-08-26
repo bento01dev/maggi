@@ -272,7 +272,7 @@ func (p *ProfilePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return IssueMsg{Inner: msg.err}
 			}
 		}
-        //TODO: remove resetProfiles()
+		//TODO: remove resetProfiles()
 		err := p.resetProfiles()
 		if err != nil {
 			return p, func() tea.Msg {
@@ -388,7 +388,7 @@ func (p *ProfilePage) setActionsList() {
 		h = len(p.profiles) + 1
 	}
 
-	p.actionList = GenerateList(actionsList, renderActionItem, w, h)
+	p.actionList = GenerateList(actionsList, renderActionItem, w, h, false)
 	p.updateActionStyle()
 }
 
@@ -414,7 +414,7 @@ func (p *ProfilePage) setProfileList() {
 	if h < defaultHeight {
 		h = defaultHeight
 	}
-	p.profileList = GenerateList(profilesList, renderProfileItem, 30, h)
+	p.profileList = GenerateList(profilesList, renderProfileItem, 30, h, false)
 	p.updateProfileStyle()
 }
 
