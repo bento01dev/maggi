@@ -765,6 +765,7 @@ func TestHandleListProfilesEnter(t *testing.T) {
 	actionPaneTestcases := []struct {
 		name        string
 		actionList  list.Model
+		profileList list.Model
 		newUserFlow profileUserFlow
 		infoFlag    bool
 		newStage    profileStage
@@ -775,12 +776,14 @@ func TestHandleListProfilesEnter(t *testing.T) {
 			newStage:    updateProfileName,
 			newUserFlow: updateProfile,
 			actionList:  GenerateList([]list.Item{actionItem{description: "update", next: updateProfile}}, renderActionItem, 30, 5, false),
+			profileList: GenerateList([]list.Item{profileItem{name: "test", id: 1}}, renderProfileItem, 30, 5, false),
 		},
 		{
 			name:        "delete profile should set the right stage",
 			newStage:    deleteProfileView,
 			newUserFlow: deleteProfile,
 			actionList:  GenerateList([]list.Item{actionItem{description: "delete", next: deleteProfile}}, renderActionItem, 30, 5, false),
+			profileList: GenerateList([]list.Item{profileItem{name: "test", id: 1}}, renderProfileItem, 30, 5, false),
 		},
 	}
 
@@ -790,6 +793,8 @@ func TestHandleListProfilesEnter(t *testing.T) {
 			profilePage.activePane = actionsPane
 			profilePage.actionList = testcase.actionList
 			profilePage.actionList.Select(0)
+			profilePage.profileList = testcase.profileList
+			profilePage.profileList.Select(0)
 			profilePage.currentProfile = &data.Profile{Name: "test"}
 			profilePage.handleListProfilesEnter()
 

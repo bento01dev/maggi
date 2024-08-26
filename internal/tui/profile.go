@@ -610,12 +610,26 @@ func (p *ProfilePage) handleListProfilesEnter() tea.Cmd {
 		p.currentUserFlow = item.next
 		switch p.currentUserFlow {
 		case updateProfile:
+			item, ok := p.profileList.SelectedItem().(profileItem)
+			if !ok {
+				return func() tea.Msg {
+					return errors.New("unknown item in list")
+				}
+			}
+            p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
 			p.infoFlag = true
 			p.infoMsg = fmt.Sprintf("You are trying to update %s with a new name. Please follow the instructions below.", p.currentProfile.Name)
 			p.currentStage = updateProfileName
 			return tea.Batch(p.textInput.Focus(), p.textInput.Cursor.BlinkCmd())
 		case deleteProfile:
 			p.currentStage = deleteProfileView
+			item, ok := p.profileList.SelectedItem().(profileItem)
+			if !ok {
+				return func() tea.Msg {
+					return errors.New("unknown item in list")
+				}
+			}
+            p.currentProfile = &data.Profile{ID: item.id, Name: item.name}
 		case viewProfile:
 			return func() tea.Msg {
 				item, ok := p.profileList.SelectedItem().(profileItem)
