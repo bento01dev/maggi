@@ -151,7 +151,7 @@ type DetailPage struct {
 	currentProfile    data.Profile
 	detailModel       detailModel
 	details           []data.Detail
-	currentDetail     data.Detail
+	currentDetail     *data.Detail
 	helpMenu          help.Model
 	keys              detailHelpKeys
 	titleStyle        lipgloss.Style
@@ -161,6 +161,8 @@ type DetailPage struct {
 	aliasStyle        lipgloss.Style
 	envStyle          lipgloss.Style
 	displayStyle      lipgloss.Style
+	keyDisplayStyle   lipgloss.Style
+	valueDisplayStyle lipgloss.Style
 	aliasList         list.Model
 	envList           list.Model
 	actionsList       list.Model
@@ -223,6 +225,8 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	issuesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).UnsetPadding().BorderForeground(red)
 	titleStyle := lipgloss.NewStyle().Foreground(green)
 	headingStyle := lipgloss.NewStyle().Foreground(blue)
+	keyDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 1).PaddingLeft(4)
+	valueDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingLeft(4).PaddingTop(1)
 
 	keyInput := textinput.New()
 	keyInput.Placeholder = "Name.."
@@ -252,6 +256,8 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		displayStyle:      displayStyle,
 		aliasStyle:        aliasStyle,
 		envStyle:          envStyle,
+		keyDisplayStyle:   keyDisplayStyle,
+		valueDisplayStyle: valueDisplayStyle,
 		keyInput:          keyInput,
 		valueInput:        valueInput,
 		highlightedButton: confirmButton,
@@ -352,6 +358,8 @@ func (d *DetailPage) updatePaneStyles() {
 	actionsStyle := d.actionsStyle.Copy().BorderForeground(muted)
 	aliasStyle := d.aliasStyle.Copy().BorderForeground(muted)
 	envStyle := d.envStyle.Copy().BorderForeground(muted)
+	keyDisplayStyle := d.keyDisplayStyle.Copy().Foreground(muted)
+	valueDisplayStyle := d.valueDisplayStyle.Copy().Foreground(muted)
 
 	switch d.activePane {
 	case envPane:
@@ -360,7 +368,11 @@ func (d *DetailPage) updatePaneStyles() {
 		aliasStyle = aliasStyle.Copy().BorderForeground(green)
 	case detailDisplayPane:
 		displayStyle = displayStyle.Copy().BorderForeground(green)
+		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
+		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
 	case detailActionPane:
+		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
+		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
 		actionsStyle = actionsStyle.Copy().BorderForeground(green)
 	}
 
@@ -368,6 +380,8 @@ func (d *DetailPage) updatePaneStyles() {
 	d.actionsStyle = actionsStyle
 	d.aliasStyle = aliasStyle
 	d.envStyle = envStyle
+	d.keyDisplayStyle = keyDisplayStyle
+	d.valueDisplayStyle = valueDisplayStyle
 }
 
 func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
@@ -383,6 +397,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 			d.newDetailOption = true
 		} else {
 			d.newDetailOption = false
+			d.setCurrentDetail(item, data.EnvDetail)
 		}
 	case aliasPane:
 		d.aliasList, cmd = d.aliasList.Update(msg)
@@ -394,9 +409,67 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 			d.newDetailOption = true
 		} else {
 			d.newDetailOption = false
+			d.setCurrentDetail(item, data.AliasDetail)
 		}
+	case detailActionPane:
+		d.actionsList, cmd = d.actionsList.Update(msg)
 	}
 	return cmd
+}
+
+func (d *DetailPage) setCurrentDetail(item detailItem, detailType data.DetailType) {
+	d.currentDetail = &data.Detail{
+		ID:         item.id,
+		Key:        item.key,
+		Value:      item.value,
+		DetailType: detailType,
+		ProfileID:  d.currentProfile.ID,
+	}
+}
+
+func (d *DetailPage) handleTab(shift bool) {
+	switch d.currentUserFlow {
+	case listDetails:
+		d.handleListDetailsTab(shift)
+	}
+	d.updatePaneStyles()
+}
+
+func (d *DetailPage) handleListDetailsTab(shift bool) {
+	if shift {
+		switch d.activePane {
+		case envPane:
+			d.activePane = aliasPane
+		case aliasPane:
+			if d.newDetailOption {
+				d.activePane = envPane
+			} else {
+				d.activePane = detailActionPane
+			}
+		case detailActionPane:
+			d.activePane = detailDisplayPane
+		case detailDisplayPane:
+			d.activePane = envPane
+			d.currentUserFlow = listDetails
+		}
+		return
+	}
+
+	switch d.activePane {
+	case envPane:
+		if d.newDetailOption {
+			d.activePane = aliasPane
+		} else {
+			d.activePane = detailDisplayPane
+		}
+	case aliasPane:
+		d.activePane = envPane
+	case detailActionPane:
+		d.activePane = aliasPane
+		d.currentUserFlow = listDetails
+	case detailDisplayPane:
+		d.activePane = detailActionPane
+	}
 }
 
 func (d *DetailPage) generateTitle() string {
@@ -488,7 +561,13 @@ func (d *DetailPage) viewListDetails() string {
 				lipgloss.JoinVertical(
 					lipgloss.Center,
 					"",
-					d.displayStyle.Render(""),
+					d.displayStyle.Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							d.keyDisplayStyle.Render(fmt.Sprintf("Name: %s", d.currentDetail.Key)),
+							d.valueDisplayStyle.Render(fmt.Sprintf("Value: %s", d.currentDetail.Value)),
+						),
+					),
 					d.actionsStyle.Render(d.actionsList.View()),
 				),
 			),
@@ -508,6 +587,15 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.currentUserFlow = retrieveDetails
 		return d, func() tea.Msg {
 			return d.getDetails()
+		}
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyTab:
+			d.handleTab(false)
+			return d, nil
+		case tea.KeyShiftTab:
+			d.handleTab(true)
+			return d, nil
 		}
 	case retrieveDetailsMsg:
 		if msg.err != nil {
