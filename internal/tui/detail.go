@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -163,6 +164,8 @@ type DetailPage struct {
 	displayStyle      lipgloss.Style
 	keyDisplayStyle   lipgloss.Style
 	valueDisplayStyle lipgloss.Style
+	keyTextArea       textarea.Model
+	valueTextArea     textarea.Model
 	aliasList         list.Model
 	envList           list.Model
 	actionsList       list.Model
@@ -225,8 +228,28 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	issuesStyle := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).UnsetPadding().BorderForeground(red)
 	titleStyle := lipgloss.NewStyle().Foreground(green)
 	headingStyle := lipgloss.NewStyle().Foreground(blue)
-	keyDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 1).PaddingLeft(4)
+	keyDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 2).PaddingLeft(4).PaddingRight(1)
 	valueDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingLeft(4).PaddingTop(1)
+
+	keyTextArea := textarea.New()
+	keyTextArea.SetValue("")
+	keyTextArea.SetWidth(50)
+	keyTextArea.SetHeight(1)
+	keyTextArea.ShowLineNumbers = false
+	keyTextArea.Prompt = ""
+	keyTextArea.Blur()
+	keyTextArea.BlurredStyle.Base.Italic(true)
+	keyTextArea.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(muted).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(muted).Height(1).Width(50)}
+
+	valueTextArea := textarea.New()
+	valueTextArea.SetValue("")
+	valueTextArea.SetWidth(50)
+	valueTextArea.SetHeight(1)
+	valueTextArea.ShowLineNumbers = false
+	valueTextArea.Prompt = ""
+	valueTextArea.Blur()
+	valueTextArea.BlurredStyle.Base.Italic(true)
+	valueTextArea.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(blue).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Height(1).Width(50)}
 
 	keyInput := textinput.New()
 	keyInput.Placeholder = "Name.."
@@ -258,6 +281,8 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		envStyle:          envStyle,
 		keyDisplayStyle:   keyDisplayStyle,
 		valueDisplayStyle: valueDisplayStyle,
+		keyTextArea:       keyTextArea,
+		valueTextArea:     valueTextArea,
 		keyInput:          keyInput,
 		valueInput:        valueInput,
 		highlightedButton: confirmButton,
@@ -360,6 +385,8 @@ func (d *DetailPage) updatePaneStyles() {
 	envStyle := d.envStyle.Copy().BorderForeground(muted)
 	keyDisplayStyle := d.keyDisplayStyle.Copy().Foreground(muted)
 	valueDisplayStyle := d.valueDisplayStyle.Copy().Foreground(muted)
+	keyTextAreaStyle := d.keyTextArea.BlurredStyle.Base.Copy().Foreground(muted).BorderForeground(muted)
+	valueTextAreaStyle := d.valueTextArea.BlurredStyle.Base.Copy().Foreground(muted).BorderForeground(muted)
 
 	switch d.activePane {
 	case envPane:
@@ -370,9 +397,13 @@ func (d *DetailPage) updatePaneStyles() {
 		displayStyle = displayStyle.Copy().BorderForeground(green)
 		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
 		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
+		keyTextAreaStyle = keyTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
+		valueTextAreaStyle = valueTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
 	case detailActionPane:
 		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
 		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
+		keyTextAreaStyle = keyTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
+		valueTextAreaStyle = valueTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
 		actionsStyle = actionsStyle.Copy().BorderForeground(green)
 	}
 
@@ -382,6 +413,8 @@ func (d *DetailPage) updatePaneStyles() {
 	d.envStyle = envStyle
 	d.keyDisplayStyle = keyDisplayStyle
 	d.valueDisplayStyle = valueDisplayStyle
+	d.keyTextArea.BlurredStyle = textarea.Style{Base: keyTextAreaStyle}
+	d.valueTextArea.BlurredStyle = textarea.Style{Base: valueTextAreaStyle}
 }
 
 func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
@@ -425,6 +458,8 @@ func (d *DetailPage) setCurrentDetail(item detailItem, detailType data.DetailTyp
 		DetailType: detailType,
 		ProfileID:  d.currentProfile.ID,
 	}
+	d.keyTextArea.SetValue(item.key)
+	d.valueTextArea.SetValue(item.value)
 }
 
 func (d *DetailPage) handleTab(shift bool) {
@@ -564,8 +599,16 @@ func (d *DetailPage) viewListDetails() string {
 					d.displayStyle.Render(
 						lipgloss.JoinVertical(
 							lipgloss.Left,
-							d.keyDisplayStyle.Render(fmt.Sprintf("Name: %s", d.currentDetail.Key)),
-							d.valueDisplayStyle.Render(fmt.Sprintf("Value: %s", d.currentDetail.Value)),
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.keyDisplayStyle.Render("Name: "),
+								d.keyTextArea.View(),
+							),
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.valueDisplayStyle.Render("Value: "),
+								d.valueTextArea.View(),
+							),
 						),
 					),
 					d.actionsStyle.Render(d.actionsList.View()),
