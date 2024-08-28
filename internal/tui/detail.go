@@ -231,26 +231,6 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	keyDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 2).PaddingLeft(4).PaddingRight(1)
 	valueDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingLeft(4).PaddingTop(1)
 
-	keyTextArea := textarea.New()
-	keyTextArea.SetValue("")
-	keyTextArea.SetWidth(50)
-	keyTextArea.SetHeight(1)
-	keyTextArea.ShowLineNumbers = false
-	keyTextArea.Prompt = ""
-	keyTextArea.Blur()
-	keyTextArea.BlurredStyle.Base.Italic(true)
-	keyTextArea.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(muted).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(muted).Height(1).Width(50)}
-
-	valueTextArea := textarea.New()
-	valueTextArea.SetValue("")
-	valueTextArea.SetWidth(50)
-	valueTextArea.SetHeight(1)
-	valueTextArea.ShowLineNumbers = false
-	valueTextArea.Prompt = ""
-	valueTextArea.Blur()
-	valueTextArea.BlurredStyle.Base.Italic(true)
-	valueTextArea.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(blue).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Height(1).Width(50)}
-
 	keyInput := textinput.New()
 	keyInput.Placeholder = "Name.."
 	keyInput.CharLimit = 50
@@ -281,14 +261,31 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		envStyle:          envStyle,
 		keyDisplayStyle:   keyDisplayStyle,
 		valueDisplayStyle: valueDisplayStyle,
-		keyTextArea:       keyTextArea,
-		valueTextArea:     valueTextArea,
+		keyTextArea:       createTextArea(true),
+		valueTextArea:     createTextArea(true),
 		keyInput:          keyInput,
 		valueInput:        valueInput,
 		highlightedButton: confirmButton,
 		mutedButton:       cancelButton,
 		deleteButton:      deleteButton,
 	}
+}
+
+func createTextArea(enabled bool) textarea.Model {
+	ta := textarea.New()
+	ta.SetValue("")
+	ta.SetWidth(50)
+	ta.SetHeight(1)
+	ta.ShowLineNumbers = false
+	ta.Prompt = ""
+	ta.Blur()
+	ta.BlurredStyle.Base.Italic(true)
+	if enabled {
+		ta.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(blue).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(green).Height(1).Width(50)}
+		return ta
+	}
+	ta.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(muted).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(muted).Height(1).Width(50)}
+	return ta
 }
 
 func (d *DetailPage) getDetails() tea.Msg {
@@ -385,8 +382,8 @@ func (d *DetailPage) updatePaneStyles() {
 	envStyle := d.envStyle.Copy().BorderForeground(muted)
 	keyDisplayStyle := d.keyDisplayStyle.Copy().Foreground(muted)
 	valueDisplayStyle := d.valueDisplayStyle.Copy().Foreground(muted)
-	keyTextAreaStyle := d.keyTextArea.BlurredStyle.Base.Copy().Foreground(muted).BorderForeground(muted)
-	valueTextAreaStyle := d.valueTextArea.BlurredStyle.Base.Copy().Foreground(muted).BorderForeground(muted)
+	//TODO: need to reset textarea. changing blurredstyle alone doesnt work
+	var enabled bool
 
 	switch d.activePane {
 	case envPane:
@@ -397,13 +394,11 @@ func (d *DetailPage) updatePaneStyles() {
 		displayStyle = displayStyle.Copy().BorderForeground(green)
 		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
 		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
-		keyTextAreaStyle = keyTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
-		valueTextAreaStyle = valueTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
+		enabled = true
 	case detailActionPane:
 		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
 		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
-		keyTextAreaStyle = keyTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
-		valueTextAreaStyle = valueTextAreaStyle.Copy().Foreground(blue).BorderForeground(green)
+		enabled = true
 		actionsStyle = actionsStyle.Copy().BorderForeground(green)
 	}
 
@@ -413,8 +408,8 @@ func (d *DetailPage) updatePaneStyles() {
 	d.envStyle = envStyle
 	d.keyDisplayStyle = keyDisplayStyle
 	d.valueDisplayStyle = valueDisplayStyle
-	d.keyTextArea.BlurredStyle = textarea.Style{Base: keyTextAreaStyle}
-	d.valueTextArea.BlurredStyle = textarea.Style{Base: valueTextAreaStyle}
+	d.keyTextArea = createTextArea(enabled)
+	d.valueTextArea = createTextArea(enabled)
 }
 
 func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
@@ -431,6 +426,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 		} else {
 			d.newDetailOption = false
 			d.setCurrentDetail(item, data.EnvDetail)
+            d.setTextAreaValues()
 		}
 	case aliasPane:
 		d.aliasList, cmd = d.aliasList.Update(msg)
@@ -443,6 +439,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 		} else {
 			d.newDetailOption = false
 			d.setCurrentDetail(item, data.AliasDetail)
+            d.setTextAreaValues()
 		}
 	case detailActionPane:
 		d.actionsList, cmd = d.actionsList.Update(msg)
@@ -458,8 +455,14 @@ func (d *DetailPage) setCurrentDetail(item detailItem, detailType data.DetailTyp
 		DetailType: detailType,
 		ProfileID:  d.currentProfile.ID,
 	}
-	d.keyTextArea.SetValue(item.key)
-	d.valueTextArea.SetValue(item.value)
+}
+
+func (d *DetailPage) setTextAreaValues() {
+	if d.currentDetail == nil {
+		return
+	}
+	d.keyTextArea.SetValue(d.currentDetail.Key)
+	d.valueTextArea.SetValue(d.currentDetail.Value)
 }
 
 func (d *DetailPage) handleTab(shift bool) {
@@ -468,6 +471,7 @@ func (d *DetailPage) handleTab(shift bool) {
 		d.handleListDetailsTab(shift)
 	}
 	d.updatePaneStyles()
+    d.setTextAreaValues()
 }
 
 func (d *DetailPage) handleListDetailsTab(shift bool) {
