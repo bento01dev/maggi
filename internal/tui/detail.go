@@ -382,7 +382,6 @@ func (d *DetailPage) updatePaneStyles() {
 	envStyle := d.envStyle.Copy().BorderForeground(muted)
 	keyDisplayStyle := d.keyDisplayStyle.Copy().Foreground(muted)
 	valueDisplayStyle := d.valueDisplayStyle.Copy().Foreground(muted)
-	//TODO: need to reset textarea. changing blurredstyle alone doesnt work
 	var enabled bool
 
 	switch d.activePane {
@@ -412,9 +411,22 @@ func (d *DetailPage) updatePaneStyles() {
 	d.valueTextArea = createTextArea(enabled)
 }
 
+func (d *DetailPage) handleDisplayPaneEvent(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	switch d.currentStage {
+	case addDetailKey, updateDetailKey:
+		d.keyInput, cmd = d.keyInput.Update(msg)
+	case addDetailValue, updateDetailValue:
+		d.valueInput, cmd = d.valueInput.Update(msg)
+	}
+	return cmd
+}
+
 func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch d.activePane {
+	case detailDisplayPane:
+		return d.handleDisplayPaneEvent(msg)
 	case envPane:
 		d.envList, cmd = d.envList.Update(msg)
 		item, ok := d.envList.SelectedItem().(detailItem)
@@ -426,7 +438,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 		} else {
 			d.newDetailOption = false
 			d.setCurrentDetail(item, data.EnvDetail)
-            d.setTextAreaValues()
+			d.setTextAreaValues()
 		}
 	case aliasPane:
 		d.aliasList, cmd = d.aliasList.Update(msg)
@@ -439,7 +451,7 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 		} else {
 			d.newDetailOption = false
 			d.setCurrentDetail(item, data.AliasDetail)
-            d.setTextAreaValues()
+			d.setTextAreaValues()
 		}
 	case detailActionPane:
 		d.actionsList, cmd = d.actionsList.Update(msg)
@@ -470,8 +482,9 @@ func (d *DetailPage) handleTab(shift bool) {
 	case listDetails:
 		d.handleListDetailsTab(shift)
 	}
+	d.setActionsList()
 	d.updatePaneStyles()
-    d.setTextAreaValues()
+	d.setTextAreaValues()
 }
 
 func (d *DetailPage) handleListDetailsTab(shift bool) {
@@ -479,9 +492,11 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 		switch d.activePane {
 		case envPane:
 			d.activePane = aliasPane
+			d.detailType = detailTypeAlias
 		case aliasPane:
 			if d.newDetailOption {
 				d.activePane = envPane
+				d.detailType = detailTypeEnv
 			} else {
 				d.activePane = detailActionPane
 			}
@@ -489,6 +504,7 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 			d.activePane = detailDisplayPane
 		case detailDisplayPane:
 			d.activePane = envPane
+			d.detailType = detailTypeEnv
 			d.currentUserFlow = listDetails
 		}
 		return
@@ -498,17 +514,89 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 	case envPane:
 		if d.newDetailOption {
 			d.activePane = aliasPane
+			d.detailType = detailTypeAlias
 		} else {
 			d.activePane = detailDisplayPane
 		}
 	case aliasPane:
 		d.activePane = envPane
+		d.detailType = detailTypeEnv
 	case detailActionPane:
 		d.activePane = aliasPane
+		d.detailType = detailTypeAlias
 		d.currentUserFlow = listDetails
 	case detailDisplayPane:
 		d.activePane = detailActionPane
 	}
+}
+
+func (d *DetailPage) handleEnter() tea.Cmd {
+	var cmd tea.Cmd
+	switch d.currentUserFlow {
+	case listDetails, viewDetail:
+		cmd = d.handleListDetailsEnter()
+	default:
+		return nil
+	}
+
+	d.setActionsList()
+	d.updatePaneStyles()
+	d.setTextAreaValues()
+
+	return cmd
+}
+
+func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
+	switch d.activePane {
+	case detailDisplayPane:
+		d.activePane = detailActionPane
+		return nil
+	case detailActionPane:
+		item, ok := d.actionsList.SelectedItem().(detailActionItem)
+		if !ok {
+			return tea.Quit
+		}
+		d.currentUserFlow = item.next
+		d.activePane = detailDisplayPane
+		switch d.currentUserFlow {
+		case deleteDetail:
+			d.currentStage = deleteDetailView
+			return nil
+		case updateDetail:
+			d.currentStage = updateDetailKey
+			d.keyInput.SetValue(d.currentDetail.Key)
+			d.valueInput.SetValue(d.currentDetail.Value)
+		}
+	case aliasPane:
+		d.detailType = detailTypeAlias
+		item, ok := d.aliasList.SelectedItem().(detailItem)
+		if !ok {
+			return tea.Quit
+		}
+		d.activePane = detailDisplayPane
+		if !item.action {
+			d.setCurrentDetail(item, data.AliasDetail)
+			d.currentUserFlow = viewDetail
+			return nil
+		}
+		d.currentUserFlow = newDetail
+        d.currentStage = addDetailKey
+	case envPane:
+		d.detailType = detailTypeEnv
+		item, ok := d.envList.SelectedItem().(detailItem)
+		if !ok {
+			return tea.Quit
+		}
+		d.activePane = detailDisplayPane
+		if !item.action {
+			d.setCurrentDetail(item, data.EnvDetail)
+			d.currentUserFlow = viewDetail
+			return nil
+		}
+		d.currentUserFlow = newDetail
+        d.currentStage = addDetailKey
+	}
+	return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 }
 
 func (d *DetailPage) generateTitle() string {
@@ -517,6 +605,8 @@ func (d *DetailPage) generateTitle() string {
 	switch d.currentUserFlow {
 	case listDetails:
 		second = " Details "
+	case viewDetail:
+		second = fmt.Sprintf(" %s | View | %s ", d.currentProfile.Name, d.currentDetail.Key)
 	case newDetail:
 		switch d.detailType {
 		case detailTypeEnv:
@@ -623,6 +713,95 @@ func (d *DetailPage) viewListDetails() string {
 	)
 }
 
+// i know.. naming is dumb. will address later if i feel dumb enough
+func (d *DetailPage) viewViewDetail() string {
+	return lipgloss.Place(
+		d.width,
+		d.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			d.titleStyle.Render(d.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					d.headingStyle.Render(d.generateHeading("Envs")),
+					d.envStyle.Render(d.envList.View()),
+					d.headingStyle.Render(d.generateHeading("Aliases")),
+					d.aliasStyle.Render(d.aliasList.View()),
+				),
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					"",
+					d.displayStyle.Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.keyDisplayStyle.Render("Name: "),
+								d.keyTextArea.View(),
+							),
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.valueDisplayStyle.Render("Value: "),
+								d.valueTextArea.View(),
+							),
+						),
+					),
+					d.actionsStyle.Render(d.actionsList.View()),
+				),
+			),
+			d.helpMenu.View(d.keys),
+		),
+	)
+}
+
+func (d *DetailPage) viewNewDetail() string {
+	return lipgloss.Place(
+		d.width,
+		d.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			d.titleStyle.Render(d.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					d.headingStyle.Render(d.generateHeading("Envs")),
+					d.envStyle.Render(d.envList.View()),
+					d.headingStyle.Render(d.generateHeading("Aliases")),
+					d.aliasStyle.Render(d.aliasList.View()),
+				),
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					"",
+					d.displayStyle.Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.keyDisplayStyle.Render("Name: "),
+								d.keyInput.View(),
+							),
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.valueDisplayStyle.Render("Value: "),
+								d.valueInput.View(),
+							),
+						),
+					),
+					d.actionsStyle.Render(d.actionsList.View()),
+				),
+			),
+			d.helpMenu.View(d.keys),
+		),
+	)
+}
+
 func (d *DetailPage) Init() tea.Cmd {
 	return nil
 }
@@ -643,6 +822,8 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyShiftTab:
 			d.handleTab(true)
 			return d, nil
+		case tea.KeyEnter:
+			return d, d.handleEnter()
 		}
 	case retrieveDetailsMsg:
 		if msg.err != nil {
@@ -666,6 +847,10 @@ func (d *DetailPage) View() string {
 	switch d.currentUserFlow {
 	case listDetails:
 		return d.viewListDetails()
+	case viewDetail:
+		return d.viewViewDetail()
+	case newDetail:
+		return d.viewNewDetail()
 	}
 	return "detail page.."
 }
