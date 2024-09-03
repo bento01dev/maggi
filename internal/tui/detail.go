@@ -231,18 +231,6 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	keyDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 2).PaddingLeft(4).PaddingRight(1)
 	valueDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingLeft(4).PaddingTop(1)
 
-	keyInput := textinput.New()
-	keyInput.Placeholder = "Name.."
-	keyInput.CharLimit = 50
-	keyInput.Width = 50
-	keyInput.Prompt = ""
-
-	valueInput := textinput.New()
-	valueInput.Placeholder = "Value.."
-	valueInput.CharLimit = 50
-	valueInput.Width = 50
-	valueInput.Prompt = ""
-
 	baseButton := lipgloss.NewStyle().Padding(buttonPaddingVertical, buttonPaddingHorizontal).MarginLeft(1).Foreground(lipgloss.Color("0"))
 	confirmButton := baseButton.Copy().Background(green)
 	cancelButton := baseButton.Copy().Background(muted)
@@ -263,8 +251,8 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		valueDisplayStyle: valueDisplayStyle,
 		keyTextArea:       createTextArea(true),
 		valueTextArea:     createTextArea(true),
-		keyInput:          keyInput,
-		valueInput:        valueInput,
+		keyInput:          createTextInput(true, "Enter Name..", "", 50, keyDisplayStyle.Copy().Foreground(green)),
+		valueInput:        createTextInput(true, "Enter Value..", "", 50, valueDisplayStyle.Copy().Foreground(green)),
 		highlightedButton: confirmButton,
 		mutedButton:       cancelButton,
 		deleteButton:      deleteButton,
@@ -286,6 +274,20 @@ func createTextArea(enabled bool) textarea.Model {
 	}
 	ta.BlurredStyle = textarea.Style{Base: lipgloss.NewStyle().Foreground(muted).BorderStyle(lipgloss.RoundedBorder()).BorderForeground(muted).Height(1).Width(50)}
 	return ta
+}
+
+func createTextInput(enabled bool, placeholder string, value string, width int, baseStyle lipgloss.Style) textinput.Model {
+	input := textinput.New()
+	input.Placeholder = placeholder
+	input.CharLimit = width
+	input.Width = width
+	input.Prompt = ""
+	if value != "" {
+		input.SetValue(value)
+	}
+    // input.PromptStyle = baseStyle
+    input.TextStyle = baseStyle
+	return input
 }
 
 func (d *DetailPage) getDetails() tea.Msg {
@@ -409,6 +411,8 @@ func (d *DetailPage) updatePaneStyles() {
 	d.valueDisplayStyle = valueDisplayStyle
 	d.keyTextArea = createTextArea(enabled)
 	d.valueTextArea = createTextArea(enabled)
+	d.keyInput = createTextInput(enabled, d.keyInput.Placeholder, d.keyInput.Value(), 50, keyDisplayStyle.Copy().Foreground(green))
+	d.valueInput = createTextInput(enabled, d.valueInput.Placeholder, d.valueInput.Value(), 50, valueDisplayStyle.Copy().Foreground(green))
 }
 
 func (d *DetailPage) handleDisplayPaneEvent(msg tea.Msg) tea.Cmd {
@@ -539,10 +543,6 @@ func (d *DetailPage) handleEnter() tea.Cmd {
 		return nil
 	}
 
-	d.setActionsList()
-	d.updatePaneStyles()
-	d.setTextAreaValues()
-
 	return cmd
 }
 
@@ -550,6 +550,9 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 	switch d.activePane {
 	case detailDisplayPane:
 		d.activePane = detailActionPane
+		d.setActionsList()
+		d.updatePaneStyles()
+		d.setTextAreaValues()
 		return nil
 	case detailActionPane:
 		item, ok := d.actionsList.SelectedItem().(detailActionItem)
@@ -561,6 +564,9 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 		switch d.currentUserFlow {
 		case deleteDetail:
 			d.currentStage = deleteDetailView
+			d.setActionsList()
+			d.updatePaneStyles()
+			d.setTextAreaValues()
 			return nil
 		case updateDetail:
 			d.currentStage = updateDetailKey
@@ -577,10 +583,13 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 		if !item.action {
 			d.setCurrentDetail(item, data.AliasDetail)
 			d.currentUserFlow = viewDetail
+			d.setActionsList()
+			d.updatePaneStyles()
+			d.setTextAreaValues()
 			return nil
 		}
 		d.currentUserFlow = newDetail
-        d.currentStage = addDetailKey
+		d.currentStage = addDetailKey
 	case envPane:
 		d.detailType = detailTypeEnv
 		item, ok := d.envList.SelectedItem().(detailItem)
@@ -591,11 +600,17 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 		if !item.action {
 			d.setCurrentDetail(item, data.EnvDetail)
 			d.currentUserFlow = viewDetail
+			d.setActionsList()
+			d.updatePaneStyles()
+			d.setTextAreaValues()
 			return nil
 		}
 		d.currentUserFlow = newDetail
-        d.currentStage = addDetailKey
+		d.currentStage = addDetailKey
 	}
+	d.setActionsList()
+	d.updatePaneStyles()
+	d.setTextAreaValues()
 	return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 }
 
@@ -794,7 +809,6 @@ func (d *DetailPage) viewNewDetail() string {
 							),
 						),
 					),
-					d.actionsStyle.Render(d.actionsList.View()),
 				),
 			),
 			d.helpMenu.View(d.keys),
