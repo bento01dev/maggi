@@ -285,8 +285,8 @@ func createTextInput(enabled bool, placeholder string, value string, width int, 
 	if value != "" {
 		input.SetValue(value)
 	}
-    // input.PromptStyle = baseStyle
-    input.TextStyle = baseStyle
+	input.PromptStyle = baseStyle
+	input.TextStyle = baseStyle
 	return input
 }
 
