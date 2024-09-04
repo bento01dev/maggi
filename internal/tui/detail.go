@@ -503,6 +503,8 @@ func (d *DetailPage) handleTab(shift bool) {
 	switch d.currentUserFlow {
 	case listDetails:
 		d.handleListDetailsTab(shift)
+	case newDetail:
+		d.handleNewDetailTab(shift)
 	}
 	d.setActionsList()
 	d.updatePaneStyles()
@@ -549,6 +551,19 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 		d.currentUserFlow = listDetails
 	case detailDisplayPane:
 		d.activePane = detailActionPane
+	}
+}
+
+func (d *DetailPage) handleNewDetailTab(shift bool) {
+	if shift {
+		switch d.activePane {
+		case envPane:
+			d.activePane = aliasPane
+			d.detailType = detailTypeAlias
+			d.currentUserFlow = listDetails
+			d.currentStage = chooseDetailAction
+		}
+		return
 	}
 }
 
