@@ -164,6 +164,8 @@ type DetailPage struct {
 	displayStyle      lipgloss.Style
 	keyDisplayStyle   lipgloss.Style
 	valueDisplayStyle lipgloss.Style
+	keyInputStyle     lipgloss.Style
+	valueInputStyle   lipgloss.Style
 	keyTextArea       textarea.Model
 	valueTextArea     textarea.Model
 	aliasList         list.Model
@@ -173,6 +175,8 @@ type DetailPage struct {
 	valueInput        textinput.Model
 	highlightedButton lipgloss.Style
 	mutedButton       lipgloss.Style
+	confirmButton     lipgloss.Style
+	cancelButton      lipgloss.Style
 	deleteButton      lipgloss.Style
 	infoMsg           string
 	actions           []string
@@ -230,10 +234,12 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	headingStyle := lipgloss.NewStyle().Foreground(blue)
 	keyDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 2).PaddingLeft(4).PaddingRight(1)
 	valueDisplayStyle := lipgloss.NewStyle().Foreground(blue).PaddingLeft(4).PaddingTop(1)
+	keyInputStyle := lipgloss.NewStyle().Foreground(blue).PaddingTop((defaultDisplayHeight / 2) - 2).PaddingLeft(3).PaddingRight(1)
+	valueInputStyle := lipgloss.NewStyle().Foreground(blue).PaddingLeft(4).PaddingTop(1)
 
 	baseButton := lipgloss.NewStyle().Padding(buttonPaddingVertical, buttonPaddingHorizontal).MarginLeft(1).Foreground(lipgloss.Color("0"))
 	confirmButton := baseButton.Copy().Background(green)
-	cancelButton := baseButton.Copy().Background(muted)
+	mutedButton := baseButton.Copy().Background(muted)
 	deleteButton := baseButton.Copy().Background(red)
 
 	return &DetailPage{
@@ -249,12 +255,14 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		envStyle:          envStyle,
 		keyDisplayStyle:   keyDisplayStyle,
 		valueDisplayStyle: valueDisplayStyle,
+		keyInputStyle:     keyInputStyle,
+		valueInputStyle:   valueInputStyle,
 		keyTextArea:       createTextArea(true),
 		valueTextArea:     createTextArea(true),
-		keyInput:          createTextInput(true, "Enter Name..", "", 50, keyDisplayStyle.Copy().Foreground(green)),
-		valueInput:        createTextInput(true, "Enter Value..", "", 50, valueDisplayStyle.Copy().Foreground(green)),
+		keyInput:          createTextInput(true, "Enter Name..", "", 50, keyInputStyle),
+		valueInput:        createTextInput(true, "Enter Value..", "", 50, valueInputStyle),
 		highlightedButton: confirmButton,
-		mutedButton:       cancelButton,
+		mutedButton:       mutedButton,
 		deleteButton:      deleteButton,
 	}
 }
@@ -285,8 +293,13 @@ func createTextInput(enabled bool, placeholder string, value string, width int, 
 	if value != "" {
 		input.SetValue(value)
 	}
-	input.PromptStyle = baseStyle
-	input.TextStyle = baseStyle
+	if enabled {
+		input.PromptStyle = baseStyle.Copy().Foreground(green)
+		input.TextStyle = baseStyle.Copy().Foreground(green)
+		return input
+	}
+	input.PromptStyle = baseStyle.Copy().Foreground(muted)
+	input.TextStyle = baseStyle.Copy().Foreground(muted)
 	return input
 }
 
@@ -385,6 +398,8 @@ func (d *DetailPage) updatePaneStyles() {
 	keyDisplayStyle := d.keyDisplayStyle.Copy().Foreground(muted)
 	valueDisplayStyle := d.valueDisplayStyle.Copy().Foreground(muted)
 	var enabled bool
+	confirmButton := d.mutedButton
+	cancelButton := d.mutedButton
 
 	switch d.activePane {
 	case envPane:
@@ -401,6 +416,7 @@ func (d *DetailPage) updatePaneStyles() {
 		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
 		enabled = true
 		actionsStyle = actionsStyle.Copy().BorderForeground(green)
+		confirmButton = d.highlightedButton
 	}
 
 	d.displayStyle = displayStyle
@@ -411,8 +427,10 @@ func (d *DetailPage) updatePaneStyles() {
 	d.valueDisplayStyle = valueDisplayStyle
 	d.keyTextArea = createTextArea(enabled)
 	d.valueTextArea = createTextArea(enabled)
-	d.keyInput = createTextInput(enabled, d.keyInput.Placeholder, d.keyInput.Value(), 50, keyDisplayStyle.Copy().Foreground(green))
-	d.valueInput = createTextInput(enabled, d.valueInput.Placeholder, d.valueInput.Value(), 50, valueDisplayStyle.Copy().Foreground(green))
+	d.keyInput = createTextInput(enabled, d.keyInput.Placeholder, d.keyInput.Value(), 50, d.keyInputStyle)
+	d.valueInput = createTextInput(enabled, d.valueInput.Placeholder, d.valueInput.Value(), 50, d.valueInputStyle)
+	d.confirmButton = confirmButton
+	d.cancelButton = cancelButton
 }
 
 func (d *DetailPage) handleDisplayPaneEvent(msg tea.Msg) tea.Cmd {
@@ -807,6 +825,13 @@ func (d *DetailPage) viewNewDetail() string {
 								d.valueDisplayStyle.Render("Value: "),
 								d.valueInput.View(),
 							),
+						),
+					),
+					d.actionsStyle.Render(
+						lipgloss.JoinHorizontal(
+							lipgloss.Left,
+							d.confirmButton.Render("Create"),
+							d.cancelButton.Render("Cancel"),
 						),
 					),
 				),
