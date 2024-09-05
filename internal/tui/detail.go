@@ -401,6 +401,9 @@ func (d *DetailPage) updatePaneStyles() {
 	confirmButton := d.mutedButton
 	cancelButton := d.mutedButton
 
+	// first styles are updated at pane level. then styles are updated depending on stage.
+	// the order of the switch statements is important for that reason
+
 	switch d.activePane {
 	case envPane:
 		envStyle = envStyle.Copy().BorderForeground(green)
@@ -408,15 +411,21 @@ func (d *DetailPage) updatePaneStyles() {
 		aliasStyle = aliasStyle.Copy().BorderForeground(green)
 	case detailDisplayPane:
 		displayStyle = displayStyle.Copy().BorderForeground(green)
-		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
-		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
 		enabled = true
 	case detailActionPane:
-		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
-		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
 		enabled = true
 		actionsStyle = actionsStyle.Copy().BorderForeground(green)
+	}
+
+	switch d.currentStage {
+	case addDetailKey, updateDetailKey:
+		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
+	case addDetailValue, updateDetailValue:
+		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
+	case addDetailConfirm, updateDetailConfirm:
 		confirmButton = d.highlightedButton
+	case addDetailCancel, updateDetailCancel:
+		cancelButton = d.highlightedButton
 	}
 
 	d.displayStyle = displayStyle
@@ -499,7 +508,18 @@ func (d *DetailPage) setTextAreaValues() {
 	d.valueTextArea.SetValue(d.currentDetail.Value)
 }
 
-func (d *DetailPage) handleTab(shift bool) {
+func (d *DetailPage) getCmdForStage() tea.Cmd {
+	switch d.currentStage {
+	case addDetailKey:
+		return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+	case addDetailValue:
+		return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
+	default:
+		return nil
+	}
+}
+
+func (d *DetailPage) handleTab(shift bool) tea.Cmd {
 	switch d.currentUserFlow {
 	case listDetails:
 		d.handleListDetailsTab(shift)
@@ -509,6 +529,7 @@ func (d *DetailPage) handleTab(shift bool) {
 	d.setActionsList()
 	d.updatePaneStyles()
 	d.setTextAreaValues()
+	return d.getCmdForStage()
 }
 
 func (d *DetailPage) handleListDetailsTab(shift bool) {
@@ -559,11 +580,51 @@ func (d *DetailPage) handleNewDetailTab(shift bool) {
 		switch d.activePane {
 		case envPane:
 			d.activePane = aliasPane
-			d.detailType = detailTypeAlias
-			d.currentUserFlow = listDetails
-			d.currentStage = chooseDetailAction
+		case aliasPane:
+			d.activePane = detailActionPane
+			d.currentStage = addDetailCancel
+		case detailActionPane:
+			switch d.currentStage {
+			case addDetailConfirm:
+				d.activePane = detailDisplayPane
+				d.currentStage = addDetailValue
+			case addDetailCancel:
+				d.currentStage = addDetailConfirm
+			}
+		case detailDisplayPane:
+			switch d.currentStage {
+			case addDetailKey:
+				d.activePane = envPane
+				d.currentStage = chooseDetailAction
+			case addDetailValue:
+				d.currentStage = addDetailKey
+			}
 		}
 		return
+	}
+
+	switch d.activePane {
+	case envPane:
+		d.activePane = detailDisplayPane
+		d.currentStage = addDetailKey
+	case aliasPane:
+		d.activePane = envPane
+	case detailDisplayPane:
+		switch d.currentStage {
+		case addDetailKey:
+			d.currentStage = addDetailValue
+		case addDetailValue:
+			d.currentStage = addDetailConfirm
+			d.activePane = detailActionPane
+		}
+	case detailActionPane:
+		switch d.currentStage {
+		case addDetailConfirm:
+			d.currentStage = addDetailCancel
+		case addDetailCancel:
+			d.activePane = aliasPane
+			d.currentStage = chooseDetailAction
+		}
 	}
 }
 
@@ -871,11 +932,9 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
-			d.handleTab(false)
-			return d, nil
+			return d, d.handleTab(false)
 		case tea.KeyShiftTab:
-			d.handleTab(true)
-			return d, nil
+			return d, d.handleTab(true)
 		case tea.KeyEnter:
 			return d, d.handleEnter()
 		}
