@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bento01dev/maggi/internal/data"
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -21,6 +22,10 @@ type DetailStartMsg struct {
 type retrieveDetailsMsg struct {
 	details []data.Detail
 	err     error
+}
+
+type detailAddedMsg struct {
+	detail data.Detail
 }
 
 const (
@@ -142,17 +147,20 @@ type detailModel interface {
 }
 
 type DetailPage struct {
+	currentDetail     *data.Detail
 	newDetailOption   bool
+	infoFlag          bool
+	isErrInfo         bool
 	width             int
 	height            int
 	currentUserFlow   detailsUserFlow
 	detailType        detailType
 	currentStage      detailStage
 	activePane        detailPagePane
+	infoMsg           string
 	currentProfile    data.Profile
 	detailModel       detailModel
 	details           []data.Detail
-	currentDetail     *data.Detail
 	helpMenu          help.Model
 	keys              detailHelpKeys
 	titleStyle        lipgloss.Style
@@ -178,7 +186,6 @@ type DetailPage struct {
 	confirmButton     lipgloss.Style
 	cancelButton      lipgloss.Style
 	deleteButton      lipgloss.Style
-	infoMsg           string
 	actions           []string
 }
 
@@ -342,6 +349,17 @@ func (d *DetailPage) getDetails() tea.Msg {
 	return retrieveDetailsMsg{details: res}
 }
 
+func (d *DetailPage) addDetail(key, value string) (data.Detail, error) {
+	var dataDetailType data.DetailType
+	switch d.detailType {
+	case detailTypeAlias:
+		dataDetailType = data.AliasDetail
+	case detailTypeEnv:
+		dataDetailType = data.EnvDetail
+	}
+	return data.Detail{Key: key, Value: value, DetailType: dataDetailType, ProfileID: d.currentProfile.ID}, nil
+}
+
 func (d *DetailPage) setDetailLists() {
 	aliasList := []list.Item{}
 	envList := []list.Item{}
@@ -500,6 +518,35 @@ func (d *DetailPage) setCurrentDetail(item detailItem, detailType data.DetailTyp
 	}
 }
 
+func (d *DetailPage) resetInfoBag() {
+	d.infoFlag = false
+	d.isErrInfo = false
+	d.infoMsg = ""
+}
+
+func (d *DetailPage) checkIfKeyExists(key string) bool {
+	for _, detail := range d.details {
+		if detail.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *DetailPage) handleEsc() {
+	d.currentUserFlow = listDetails
+	d.activePane = envPane
+	d.currentDetail = nil
+	d.infoMsg = ""
+	d.isErrInfo = false
+	d.infoFlag = false
+	d.keyInput.SetValue("")
+	d.valueInput.SetValue("")
+	d.keyTextArea.SetValue("")
+	d.valueTextArea.SetValue("")
+	d.updatePaneStyles()
+}
+
 func (d *DetailPage) setTextAreaValues() {
 	if d.currentDetail == nil {
 		return
@@ -633,6 +680,8 @@ func (d *DetailPage) handleEnter() tea.Cmd {
 	switch d.currentUserFlow {
 	case listDetails, viewDetail:
 		cmd = d.handleListDetailsEnter()
+	case newDetail:
+		cmd = d.handleNewDetailEnter()
 	default:
 		return nil
 	}
@@ -706,6 +755,87 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 	d.updatePaneStyles()
 	d.setTextAreaValues()
 	return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+}
+
+func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
+	d.resetInfoBag()
+	switch d.currentStage {
+	case addDetailKey:
+		key := strings.TrimSpace(d.keyInput.Value())
+		if key == "" {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = "Please pass a valid key. You can exit flow by pressing <esc> if needed"
+			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+		}
+
+		if d.checkIfKeyExists(key) {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
+			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+		}
+		d.currentStage = addDetailValue
+		d.updatePaneStyles()
+		return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
+	case addDetailValue:
+		key := strings.TrimSpace(d.keyInput.Value())
+		if key == "" {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = "Please pass a valid key. You can exit flow by pressing <esc> if needed"
+			d.currentStage = addDetailKey
+			d.valueInput.Cursor.SetMode(cursor.CursorHide)
+			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+		}
+
+		if d.checkIfKeyExists(key) {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
+			d.currentStage = addDetailKey
+			d.valueInput.Cursor.SetMode(cursor.CursorHide)
+			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+		}
+
+		value := strings.TrimSpace(d.valueInput.Value())
+		if value == "" {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = "Please pass a valid value. You can exit flow by pressing <esc> if needed"
+			return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
+		}
+		d.currentStage = addDetailConfirm
+		d.activePane = detailActionPane
+		d.updatePaneStyles()
+		return nil
+	case addDetailConfirm:
+		key := strings.TrimSpace(d.keyInput.Value())
+		value := strings.TrimSpace(d.valueInput.Value())
+		return func() tea.Msg {
+			detail, err := d.addDetail(key, value)
+			if err != nil {
+				return IssueMsg{Inner: err}
+			}
+			return detailAddedMsg{detail: detail}
+		}
+	case addDetailCancel:
+		d.currentStage = chooseDetailAction
+		switch d.detailType {
+		case detailTypeAlias:
+			d.activePane = aliasPane
+		case detailTypeEnv:
+			d.activePane = envPane
+		default:
+			d.activePane = envPane
+		}
+		d.keyInput.SetValue("")
+		d.valueInput.SetValue("")
+		d.currentUserFlow = listDetails
+		d.updatePaneStyles()
+		return nil
+	}
+	return nil
 }
 
 func (d *DetailPage) generateTitle() string {
@@ -868,6 +998,60 @@ func (d *DetailPage) viewViewDetail() string {
 }
 
 func (d *DetailPage) viewNewDetail() string {
+	if d.infoFlag {
+		infoStyle := d.issuesStyle.Copy().BorderForeground(green)
+		if d.isErrInfo {
+			infoStyle = d.issuesStyle.Copy().BorderForeground(red)
+		}
+		return lipgloss.Place(
+			d.width,
+			d.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			lipgloss.JoinVertical(
+				lipgloss.Center,
+				d.titleStyle.Render(d.generateTitle()),
+				lipgloss.JoinHorizontal(
+					lipgloss.Left,
+					lipgloss.JoinVertical(
+						lipgloss.Center,
+						d.headingStyle.Render(d.generateHeading("Envs")),
+						d.envStyle.Render(d.envList.View()),
+						d.headingStyle.Render(d.generateHeading("Aliases")),
+						d.aliasStyle.Render(d.aliasList.View()),
+					),
+					lipgloss.JoinVertical(
+						lipgloss.Center,
+						"",
+						infoStyle.Render(d.infoMsg),
+						d.displayStyle.Render(
+							lipgloss.JoinVertical(
+								lipgloss.Left,
+								lipgloss.JoinHorizontal(
+									lipgloss.Left,
+									d.keyDisplayStyle.Render("Name: "),
+									d.keyInput.View(),
+								),
+								lipgloss.JoinHorizontal(
+									lipgloss.Left,
+									d.valueDisplayStyle.Render("Value: "),
+									d.valueInput.View(),
+								),
+							),
+						),
+						d.actionsStyle.Render(
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.confirmButton.Render("Create"),
+								d.cancelButton.Render("Cancel"),
+							),
+						),
+					),
+				),
+				d.helpMenu.View(d.keys),
+			),
+		)
+	}
 	return lipgloss.Place(
 		d.width,
 		d.height,
@@ -937,6 +1121,9 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return d, d.handleTab(true)
 		case tea.KeyEnter:
 			return d, d.handleEnter()
+		case tea.KeyEsc:
+			d.handleEsc()
+			return d, nil
 		}
 	case retrieveDetailsMsg:
 		if msg.err != nil {
