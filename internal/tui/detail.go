@@ -24,7 +24,7 @@ type retrieveDetailsMsg struct {
 	err     error
 }
 
-type detailAddedMsg struct {
+type detailEditedMsg struct {
 	detail data.Detail
 }
 
@@ -70,14 +70,14 @@ type detailStage int
 const (
 	detailStageDefault detailStage = iota
 	chooseDetailAction
-	addDetailKey
-	addDetailValue
-	addDetailConfirm
-	addDetailCancel
-	updateDetailKey
-	updateDetailValue
-	updateDetailConfirm
-	updateDetailCancel
+	editDetailKey
+	editDetailValue
+	editDetailConfirm
+	editDetailCancel
+	// updateDetailKey
+	// updateDetailValue
+	// updateDetailConfirm
+	// updateDetailCancel
 	deleteDetailView
 	deleteDetailConfirm
 	deleteDetailCancel
@@ -148,7 +148,7 @@ type detailModel interface {
 
 type DetailPage struct {
 	currentDetail     *data.Detail
-	newDetailOption   bool
+	emptyDisplay      bool
 	infoFlag          bool
 	isErrInfo         bool
 	width             int
@@ -357,11 +357,27 @@ func (d *DetailPage) addDetail(key, value string) (data.Detail, error) {
 	case detailTypeEnv:
 		dataDetailType = data.EnvDetail
 	}
+	// detail, err := d.detailModel.Add(key, value, dataDetailType, d.currentProfile.ID)
 	return data.Detail{Key: key, Value: value, DetailType: dataDetailType, ProfileID: d.currentProfile.ID}, nil
 }
 
+func (d *DetailPage) updateDetail(key, value string) (data.Detail, error) {
+	// detail, err := d.detailModel.Update(*d.currentDetail, key, value)
+	return data.Detail{Key: key, Value: value, DetailType: d.currentDetail.DetailType, ProfileID: d.currentDetail.ID}, nil
+}
+
 func (d *DetailPage) resetDetails(detail data.Detail) error {
-	d.details = append(d.details, detail)
+	if d.currentUserFlow == newDetail {
+		d.details = append(d.details, detail)
+		return nil
+	}
+	for i, existingDetail := range d.details {
+		if existingDetail.ID == detail.ID {
+			existingDetail.Key = detail.Key
+			existingDetail.Value = detail.Value
+			d.details[i] = existingDetail
+		}
+	}
 	return nil
 }
 
@@ -441,13 +457,13 @@ func (d *DetailPage) updatePaneStyles() {
 	}
 
 	switch d.currentStage {
-	case addDetailKey, updateDetailKey:
+	case editDetailKey:
 		keyDisplayStyle = keyDisplayStyle.Copy().Foreground(blue)
-	case addDetailValue, updateDetailValue:
+	case editDetailValue:
 		valueDisplayStyle = valueDisplayStyle.Copy().Foreground(blue)
-	case addDetailConfirm, updateDetailConfirm:
+	case editDetailConfirm:
 		confirmButton = d.highlightedButton
-	case addDetailCancel, updateDetailCancel:
+	case editDetailCancel:
 		cancelButton = d.highlightedButton
 	}
 
@@ -468,9 +484,9 @@ func (d *DetailPage) updatePaneStyles() {
 func (d *DetailPage) handleDisplayPaneEvent(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch d.currentStage {
-	case addDetailKey, updateDetailKey:
+	case editDetailKey:
 		d.keyInput, cmd = d.keyInput.Update(msg)
-	case addDetailValue, updateDetailValue:
+	case editDetailValue:
 		d.valueInput, cmd = d.valueInput.Update(msg)
 	}
 	return cmd
@@ -488,9 +504,9 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		if item.action {
-			d.newDetailOption = true
+			d.emptyDisplay = true
 		} else {
-			d.newDetailOption = false
+			d.emptyDisplay = false
 			d.setCurrentDetail(item, data.EnvDetail)
 			d.setTextAreaValues()
 		}
@@ -501,9 +517,9 @@ func (d *DetailPage) handleEvent(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		if item.action {
-			d.newDetailOption = true
+			d.emptyDisplay = true
 		} else {
-			d.newDetailOption = false
+			d.emptyDisplay = false
 			d.setCurrentDetail(item, data.AliasDetail)
 			d.setTextAreaValues()
 		}
@@ -530,12 +546,22 @@ func (d *DetailPage) resetInfoBag() {
 }
 
 func (d *DetailPage) checkIfKeyExists(key string) bool {
-	for _, detail := range d.details {
-		if detail.Key == key {
-			return true
+	var exists bool
+	if d.currentUserFlow == newDetail {
+		for _, detail := range d.details {
+			if detail.Key == key {
+				return true
+			}
 		}
 	}
-	return false
+	if d.currentUserFlow == updateDetail {
+		for _, detail := range d.details {
+			if detail.Key == key && detail.ID != d.currentDetail.ID {
+				return true
+			}
+		}
+	}
+	return exists
 }
 
 func (d *DetailPage) handleEsc() {
@@ -562,9 +588,9 @@ func (d *DetailPage) setTextAreaValues() {
 
 func (d *DetailPage) getCmdForStage() tea.Cmd {
 	switch d.currentStage {
-	case addDetailKey:
+	case editDetailKey:
 		return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
-	case addDetailValue:
+	case editDetailValue:
 		return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
 	default:
 		return nil
@@ -575,7 +601,7 @@ func (d *DetailPage) handleTab(shift bool) tea.Cmd {
 	switch d.currentUserFlow {
 	case listDetails:
 		d.handleListDetailsTab(shift)
-	case newDetail:
+	case newDetail, updateDetail:
 		d.handleNewDetailTab(shift)
 	}
 	d.setActionsList()
@@ -591,7 +617,7 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 			d.activePane = aliasPane
 			d.detailType = detailTypeAlias
 		case aliasPane:
-			if d.newDetailOption {
+			if d.emptyDisplay {
 				d.activePane = envPane
 				d.detailType = detailTypeEnv
 			} else {
@@ -609,7 +635,7 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 
 	switch d.activePane {
 	case envPane:
-		if d.newDetailOption {
+		if d.emptyDisplay {
 			d.activePane = aliasPane
 			d.detailType = detailTypeAlias
 		} else {
@@ -634,24 +660,24 @@ func (d *DetailPage) handleNewDetailTab(shift bool) {
 			d.activePane = aliasPane
 		case aliasPane:
 			d.activePane = detailActionPane
-			d.currentStage = addDetailCancel
+			d.currentStage = editDetailCancel
 		case detailActionPane:
 			switch d.currentStage {
-			case addDetailConfirm:
+			case editDetailConfirm:
 				d.activePane = detailDisplayPane
-				d.currentStage = addDetailValue
-			case addDetailCancel:
-				d.currentStage = addDetailConfirm
+				d.currentStage = editDetailValue
+			case editDetailCancel:
+				d.currentStage = editDetailConfirm
 			}
 		case detailDisplayPane:
 			switch d.currentStage {
-			case addDetailKey:
+			case editDetailKey:
 				d.activePane = envPane
-                d.detailType = detailTypeEnv
+				d.detailType = detailTypeEnv
 				d.currentStage = chooseDetailAction
 				d.currentUserFlow = listDetails
-			case addDetailValue:
-				d.currentStage = addDetailKey
+			case editDetailValue:
+				d.currentStage = editDetailKey
 			}
 		}
 		return
@@ -660,22 +686,22 @@ func (d *DetailPage) handleNewDetailTab(shift bool) {
 	switch d.activePane {
 	case envPane:
 		d.activePane = detailDisplayPane
-		d.currentStage = addDetailKey
+		d.currentStage = editDetailKey
 	case aliasPane:
 		d.activePane = envPane
 	case detailDisplayPane:
 		switch d.currentStage {
-		case addDetailKey:
-			d.currentStage = addDetailValue
-		case addDetailValue:
-			d.currentStage = addDetailConfirm
+		case editDetailKey:
+			d.currentStage = editDetailValue
+		case editDetailValue:
+			d.currentStage = editDetailConfirm
 			d.activePane = detailActionPane
 		}
 	case detailActionPane:
 		switch d.currentStage {
-		case addDetailConfirm:
-			d.currentStage = addDetailCancel
-		case addDetailCancel:
+		case editDetailConfirm:
+			d.currentStage = editDetailCancel
+		case editDetailCancel:
 			d.activePane = aliasPane
 			d.detailType = detailTypeAlias
 			d.currentStage = chooseDetailAction
@@ -689,7 +715,7 @@ func (d *DetailPage) handleEnter() tea.Cmd {
 	switch d.currentUserFlow {
 	case listDetails, viewDetail:
 		cmd = d.handleListDetailsEnter()
-	case newDetail:
+	case newDetail, updateDetail:
 		cmd = d.handleNewDetailEnter()
 	default:
 		return nil
@@ -721,7 +747,7 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 			d.setTextAreaValues()
 			return nil
 		case updateDetail:
-			d.currentStage = updateDetailKey
+			d.currentStage = editDetailKey
 			d.keyInput.SetValue(d.currentDetail.Key)
 			d.valueInput.SetValue(d.currentDetail.Value)
 		}
@@ -741,7 +767,7 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 			return nil
 		}
 		d.currentUserFlow = newDetail
-		d.currentStage = addDetailKey
+		d.currentStage = editDetailKey
 	case envPane:
 		d.detailType = detailTypeEnv
 		item, ok := d.envList.SelectedItem().(detailItem)
@@ -758,7 +784,7 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 			return nil
 		}
 		d.currentUserFlow = newDetail
-		d.currentStage = addDetailKey
+		d.currentStage = editDetailKey
 	}
 	d.setActionsList()
 	d.updatePaneStyles()
@@ -769,7 +795,7 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 	d.resetInfoBag()
 	switch d.currentStage {
-	case addDetailKey:
+	case editDetailKey:
 		key := strings.TrimSpace(d.keyInput.Value())
 		if key == "" {
 			d.infoFlag = true
@@ -784,16 +810,16 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
-		d.currentStage = addDetailValue
+		d.currentStage = editDetailValue
 		d.updatePaneStyles()
 		return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
-	case addDetailValue:
+	case editDetailValue:
 		key := strings.TrimSpace(d.keyInput.Value())
 		if key == "" {
 			d.infoFlag = true
 			d.isErrInfo = true
 			d.infoMsg = "Please pass a valid key. You can exit flow by pressing <esc> if needed"
-			d.currentStage = addDetailKey
+			d.currentStage = editDetailKey
 			d.valueInput.Cursor.SetMode(cursor.CursorHide)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
@@ -802,7 +828,7 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 			d.infoFlag = true
 			d.isErrInfo = true
 			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
-			d.currentStage = addDetailKey
+			d.currentStage = editDetailKey
 			d.valueInput.Cursor.SetMode(cursor.CursorHide)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
@@ -814,18 +840,18 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 			d.infoMsg = "Please pass a valid value. You can exit flow by pressing <esc> if needed"
 			return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
 		}
-		d.currentStage = addDetailConfirm
+		d.currentStage = editDetailConfirm
 		d.activePane = detailActionPane
 		d.updatePaneStyles()
 		return nil
-	case addDetailConfirm:
+	case editDetailConfirm:
 		key := strings.TrimSpace(d.keyInput.Value())
 		value := strings.TrimSpace(d.valueInput.Value())
 		if key == "" {
 			d.infoFlag = true
 			d.isErrInfo = true
 			d.infoMsg = "Please pass a valid key. You can exit flow by pressing <esc> if needed"
-			d.currentStage = addDetailKey
+			d.currentStage = editDetailKey
 			d.valueInput.Cursor.SetMode(cursor.CursorHide)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
@@ -834,7 +860,7 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 			d.infoFlag = true
 			d.isErrInfo = true
 			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
-			d.currentStage = addDetailKey
+			d.currentStage = editDetailKey
 			d.valueInput.Cursor.SetMode(cursor.CursorHide)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
@@ -847,13 +873,20 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 		}
 
 		return func() tea.Msg {
-			detail, err := d.addDetail(key, value)
+			var detail data.Detail
+			var err error
+			switch d.currentUserFlow {
+			case newDetail:
+				detail, err = d.addDetail(key, value)
+			case updateDetail:
+				detail, err = d.updateDetail(key, value)
+			}
 			if err != nil {
 				return IssueMsg{Inner: err}
 			}
-			return detailAddedMsg{detail: detail}
+			return detailEditedMsg{detail: detail}
 		}
-	case addDetailCancel:
+	case editDetailCancel:
 		d.currentStage = chooseDetailAction
 		switch d.detailType {
 		case detailTypeAlias:
@@ -914,7 +947,7 @@ func (d *DetailPage) generateHeading(name string) string {
 }
 
 func (d *DetailPage) viewListDetails() string {
-	if d.newDetailOption {
+	if d.emptyDisplay {
 		return lipgloss.Place(
 			d.width,
 			d.height,
@@ -1031,7 +1064,17 @@ func (d *DetailPage) viewViewDetail() string {
 	)
 }
 
-func (d *DetailPage) viewNewDetail() string {
+func (d *DetailPage) viewEditDetail() string {
+	var confirmButtonStr string
+	switch d.currentUserFlow {
+	case newDetail:
+		confirmButtonStr = "Create"
+	case updateDetail:
+		confirmButtonStr = "Update"
+	default:
+		confirmButtonStr = "Create"
+	}
+
 	if d.infoFlag {
 		infoStyle := d.issuesStyle.Copy().BorderForeground(green)
 		if d.isErrInfo {
@@ -1076,7 +1119,7 @@ func (d *DetailPage) viewNewDetail() string {
 						d.actionsStyle.Render(
 							lipgloss.JoinHorizontal(
 								lipgloss.Left,
-								d.confirmButton.Render("Create"),
+								d.confirmButton.Render(confirmButtonStr),
 								d.cancelButton.Render("Cancel"),
 							),
 						),
@@ -1124,7 +1167,7 @@ func (d *DetailPage) viewNewDetail() string {
 					d.actionsStyle.Render(
 						lipgloss.JoinHorizontal(
 							lipgloss.Left,
-							d.confirmButton.Render("Create"),
+							d.confirmButton.Render(confirmButtonStr),
 							d.cancelButton.Render("Cancel"),
 						),
 					),
@@ -1169,10 +1212,10 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.details = msg.details
 		d.activePane = envPane
 		d.detailType = detailTypeEnv
-		d.newDetailOption = true
+		d.emptyDisplay = true
 		d.setDetailLists()
 		d.setActionsList()
-	case detailAddedMsg:
+	case detailEditedMsg:
 		err := d.resetDetails(msg.detail)
 		if err != nil {
 			return d, func() tea.Msg {
@@ -1190,6 +1233,7 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		d.currentUserFlow = listDetails
 		d.currentStage = chooseDetailAction
+		d.emptyDisplay = true
 
 		d.keyInput.SetValue("")
 		d.valueInput.SetValue("")
@@ -1208,8 +1252,8 @@ func (d *DetailPage) View() string {
 		return d.viewListDetails()
 	case viewDetail:
 		return d.viewViewDetail()
-	case newDetail:
-		return d.viewNewDetail()
+	case newDetail, updateDetail:
+		return d.viewEditDetail()
 	}
 	return "detail page.."
 }
