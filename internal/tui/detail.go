@@ -360,6 +360,11 @@ func (d *DetailPage) addDetail(key, value string) (data.Detail, error) {
 	return data.Detail{Key: key, Value: value, DetailType: dataDetailType, ProfileID: d.currentProfile.ID}, nil
 }
 
+func (d *DetailPage) resetDetails(detail data.Detail) error {
+	d.details = append(d.details, detail)
+	return nil
+}
+
 func (d *DetailPage) setDetailLists() {
 	aliasList := []list.Item{}
 	envList := []list.Item{}
@@ -642,7 +647,9 @@ func (d *DetailPage) handleNewDetailTab(shift bool) {
 			switch d.currentStage {
 			case addDetailKey:
 				d.activePane = envPane
+                d.detailType = detailTypeEnv
 				d.currentStage = chooseDetailAction
+				d.currentUserFlow = listDetails
 			case addDetailValue:
 				d.currentStage = addDetailKey
 			}
@@ -670,7 +677,9 @@ func (d *DetailPage) handleNewDetailTab(shift bool) {
 			d.currentStage = addDetailCancel
 		case addDetailCancel:
 			d.activePane = aliasPane
+			d.detailType = detailTypeAlias
 			d.currentStage = chooseDetailAction
+			d.currentUserFlow = listDetails
 		}
 	}
 }
@@ -812,6 +821,31 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 	case addDetailConfirm:
 		key := strings.TrimSpace(d.keyInput.Value())
 		value := strings.TrimSpace(d.valueInput.Value())
+		if key == "" {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = "Please pass a valid key. You can exit flow by pressing <esc> if needed"
+			d.currentStage = addDetailKey
+			d.valueInput.Cursor.SetMode(cursor.CursorHide)
+			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+		}
+
+		if d.checkIfKeyExists(key) {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
+			d.currentStage = addDetailKey
+			d.valueInput.Cursor.SetMode(cursor.CursorHide)
+			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
+		}
+
+		if value == "" {
+			d.infoFlag = true
+			d.isErrInfo = true
+			d.infoMsg = "Please pass a valid value. You can exit flow by pressing <esc> if needed"
+			return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
+		}
+
 		return func() tea.Msg {
 			detail, err := d.addDetail(key, value)
 			if err != nil {
@@ -1138,6 +1172,31 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.newDetailOption = true
 		d.setDetailLists()
 		d.setActionsList()
+	case detailAddedMsg:
+		err := d.resetDetails(msg.detail)
+		if err != nil {
+			return d, func() tea.Msg {
+				return IssueMsg{Inner: err}
+			}
+		}
+		switch d.detailType {
+		case detailTypeAlias:
+			d.activePane = aliasPane
+		case detailTypeEnv:
+			d.activePane = envPane
+		default:
+			d.activePane = envPane
+			d.detailType = detailTypeEnv
+		}
+		d.currentUserFlow = listDetails
+		d.currentStage = chooseDetailAction
+
+		d.keyInput.SetValue("")
+		d.valueInput.SetValue("")
+
+		d.setDetailLists()
+		d.updatePaneStyles()
+		return d, nil
 	}
 	cmd := d.handleEvent(msg)
 	return d, cmd
