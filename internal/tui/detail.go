@@ -28,6 +28,8 @@ type detailEditedMsg struct {
 	detail data.Detail
 }
 
+type detailDeletedMsg struct{}
+
 const (
 	defaultDPWidth       int = 120
 	defaultSideBarWidth  int = 30
@@ -74,10 +76,6 @@ const (
 	editDetailValue
 	editDetailConfirm
 	editDetailCancel
-	// updateDetailKey
-	// updateDetailValue
-	// updateDetailConfirm
-	// updateDetailCancel
 	deleteDetailView
 	deleteDetailConfirm
 	deleteDetailCancel
@@ -367,11 +365,25 @@ func (d *DetailPage) updateDetail(key, value string) (data.Detail, error) {
 	return data.Detail{Key: key, Value: value, DetailType: d.currentDetail.DetailType, ProfileID: d.currentDetail.ID}, nil
 }
 
+func (d *DetailPage) deleteDetail() error {
+	return nil
+}
+
 func (d *DetailPage) resetDetails(detail data.Detail) error {
 	if d.currentUserFlow == newDetail {
 		d.details = append(d.details, detail)
 		return nil
 	}
+    if d.currentUserFlow == deleteDetail {
+        var pos int
+        for i, existingDetail := range d.details {
+            if existingDetail.ID == detail.ID {
+                pos = i 
+                break
+            }
+        }
+        d.details = append(d.details[:pos], d.details[pos+1:]...)
+    }
 	for i, existingDetail := range d.details {
 		if existingDetail.ID == detail.ID {
 			existingDetail.Key = detail.Key
@@ -606,7 +618,7 @@ func (d *DetailPage) getCmdForStage() tea.Cmd {
 
 func (d *DetailPage) handleTab(shift bool) tea.Cmd {
 	switch d.currentUserFlow {
-	case listDetails:
+	case listDetails, viewDetail:
 		d.handleListDetailsTab(shift)
 	case newDetail, updateDetail:
 		d.handleEditDetailTab(shift)
@@ -637,7 +649,7 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 		case detailDisplayPane:
 			d.activePane = envPane
 			d.detailType = detailTypeEnv
-			d.currentUserFlow = listDetails
+			// d.currentUserFlow = listDetails
 		}
 		return
 	}
@@ -656,7 +668,7 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 	case detailActionPane:
 		d.activePane = aliasPane
 		d.detailType = detailTypeAlias
-		d.currentUserFlow = listDetails
+		// d.currentUserFlow = listDetails
 	case detailDisplayPane:
 		d.activePane = detailActionPane
 	}
@@ -682,9 +694,9 @@ func (d *DetailPage) handleEditDetailTab(shift bool) {
 			switch d.currentStage {
 			case editDetailKey:
 				d.activePane = envPane
-				d.detailType = detailTypeEnv
+				// d.detailType = detailTypeEnv
 				d.currentStage = chooseDetailAction
-				d.currentUserFlow = listDetails
+				// d.currentUserFlow = listDetails
 			case editDetailValue:
 				d.currentStage = editDetailKey
 			}
@@ -712,9 +724,9 @@ func (d *DetailPage) handleEditDetailTab(shift bool) {
 			d.currentStage = editDetailCancel
 		case editDetailCancel:
 			d.activePane = aliasPane
-			d.detailType = detailTypeAlias
+			// d.detailType = detailTypeAlias
 			d.currentStage = chooseDetailAction
-			d.currentUserFlow = listDetails
+			// d.currentUserFlow = listDetails
 		}
 	}
 }
@@ -735,12 +747,11 @@ func (d *DetailPage) handleDeleteDetailTab(shift bool) {
 			case deleteDetailCancel:
 				d.activePane = detailDisplayPane
 				d.currentStage = deleteDetailView
-
 			}
 		case detailDisplayPane:
 			d.activePane = envPane
 			// d.detailType = detailTypeEnv
-			// d.currentStage = chooseDetailAction
+			d.currentStage = chooseDetailAction
 			// d.currentUserFlow = listDetails
 		}
 		return
@@ -763,7 +774,7 @@ func (d *DetailPage) handleDeleteDetailTab(shift bool) {
 		case deleteDetailCancel:
 			d.activePane = aliasPane
 			// d.detailType = detailTypeAlias
-			// d.currentStage = chooseDetailAction
+			d.currentStage = chooseDetailAction
 			// d.currentUserFlow = listDetails
 		}
 	}
@@ -783,6 +794,25 @@ func (d *DetailPage) handleEnter() tea.Cmd {
 	}
 
 	return cmd
+}
+
+func (d *DetailPage) handleCancel() {
+	d.currentStage = chooseDetailAction
+	switch d.detailType {
+	case detailTypeAlias:
+		d.activePane = aliasPane
+	case detailTypeEnv:
+		d.activePane = envPane
+	default:
+		d.activePane = envPane
+	}
+	d.emptyDisplay = true
+	d.keyInput.SetValue("")
+	d.valueInput.SetValue("")
+	d.keyTextArea.SetValue("")
+	d.valueTextArea.SetValue("")
+	d.currentUserFlow = listDetails
+	d.updatePaneStyles()
 }
 
 func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
@@ -854,6 +884,11 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 }
 
 func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
+	switch d.activePane {
+	case aliasPane, envPane:
+		return d.handleListDetailsEnter()
+	}
+
 	d.resetInfoBag()
 	switch d.currentStage {
 	case editDetailKey:
@@ -948,25 +983,51 @@ func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 			return detailEditedMsg{detail: detail}
 		}
 	case editDetailCancel:
-		d.currentStage = chooseDetailAction
-		switch d.detailType {
-		case detailTypeAlias:
-			d.activePane = aliasPane
-		case detailTypeEnv:
-			d.activePane = envPane
-		default:
-			d.activePane = envPane
-		}
-		d.keyInput.SetValue("")
-		d.valueInput.SetValue("")
-		d.currentUserFlow = listDetails
-		d.updatePaneStyles()
+		d.handleCancel()
 		return nil
+		// d.currentStage = chooseDetailAction
+		// switch d.detailType {
+		// case detailTypeAlias:
+		// 	d.activePane = aliasPane
+		// case detailTypeEnv:
+		// 	d.activePane = envPane
+		// default:
+		// 	d.activePane = envPane
+		// }
+		// d.keyInput.SetValue("")
+		// d.valueInput.SetValue("")
+		// d.currentUserFlow = listDetails
+		// d.updatePaneStyles()
+		// return nil
 	}
 	return nil
 }
 
 func (d *DetailPage) handleDeleteDetailEnter() tea.Cmd {
+	switch d.activePane {
+	case aliasPane, envPane:
+		return d.handleListDetailsEnter()
+	}
+
+	switch d.currentStage {
+	case deleteDetailView:
+		d.currentStage = deleteDetailConfirm
+		d.activePane = detailActionPane
+		d.updatePaneStyles()
+		d.setTextAreaValues()
+		return nil
+	case deleteDetailCancel:
+		d.handleCancel()
+		return nil
+	case deleteDetailConfirm:
+		return func() tea.Msg {
+			err := d.deleteDetail()
+			if err != nil {
+				return IssueMsg{Inner: err}
+			}
+            return detailEditedMsg{*d.currentDetail}
+		}
+	}
 	return nil
 }
 
