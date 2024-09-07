@@ -183,6 +183,7 @@ type DetailPage struct {
 	valueInput        textinput.Model
 	highlightedButton lipgloss.Style
 	mutedButton       lipgloss.Style
+	redButton         lipgloss.Style
 	confirmButton     lipgloss.Style
 	cancelButton      lipgloss.Style
 	deleteButton      lipgloss.Style
@@ -270,7 +271,7 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 		valueInput:        createTextInput(true, "Enter Value..", "", 50, valueInputStyle),
 		highlightedButton: confirmButton,
 		mutedButton:       mutedButton,
-		deleteButton:      deleteButton,
+		redButton:         deleteButton,
 	}
 }
 
@@ -438,6 +439,7 @@ func (d *DetailPage) updatePaneStyles() {
 	valueDisplayStyle := d.valueDisplayStyle.Copy().Foreground(muted)
 	var enabled bool
 	confirmButton := d.mutedButton
+	deleteButton := d.mutedButton
 	cancelButton := d.mutedButton
 
 	// first styles are updated at pane level. then styles are updated depending on stage.
@@ -465,6 +467,10 @@ func (d *DetailPage) updatePaneStyles() {
 		confirmButton = d.highlightedButton
 	case editDetailCancel:
 		cancelButton = d.highlightedButton
+	case deleteDetailConfirm:
+		deleteButton = d.redButton
+	case deleteDetailCancel:
+		cancelButton = d.highlightedButton
 	}
 
 	d.displayStyle = displayStyle
@@ -479,6 +485,7 @@ func (d *DetailPage) updatePaneStyles() {
 	d.valueInput = createTextInput(enabled, d.valueInput.Placeholder, d.valueInput.Value(), 50, d.valueInputStyle)
 	d.confirmButton = confirmButton
 	d.cancelButton = cancelButton
+	d.deleteButton = deleteButton
 }
 
 func (d *DetailPage) handleDisplayPaneEvent(msg tea.Msg) tea.Cmd {
@@ -602,7 +609,9 @@ func (d *DetailPage) handleTab(shift bool) tea.Cmd {
 	case listDetails:
 		d.handleListDetailsTab(shift)
 	case newDetail, updateDetail:
-		d.handleNewDetailTab(shift)
+		d.handleEditDetailTab(shift)
+	case deleteDetail:
+		d.handleDeleteDetailTab(shift)
 	}
 	d.setActionsList()
 	d.updatePaneStyles()
@@ -653,7 +662,7 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 	}
 }
 
-func (d *DetailPage) handleNewDetailTab(shift bool) {
+func (d *DetailPage) handleEditDetailTab(shift bool) {
 	if shift {
 		switch d.activePane {
 		case envPane:
@@ -710,13 +719,65 @@ func (d *DetailPage) handleNewDetailTab(shift bool) {
 	}
 }
 
+func (d *DetailPage) handleDeleteDetailTab(shift bool) {
+	if shift {
+		switch d.activePane {
+		case envPane:
+			d.activePane = aliasPane
+			// d.detailType = detailTypeAlias
+		case aliasPane:
+			d.activePane = detailActionPane
+			d.currentStage = deleteDetailConfirm
+		case detailActionPane:
+			switch d.currentStage {
+			case deleteDetailConfirm:
+				d.currentStage = deleteDetailCancel
+			case deleteDetailCancel:
+				d.activePane = detailDisplayPane
+				d.currentStage = deleteDetailView
+
+			}
+		case detailDisplayPane:
+			d.activePane = envPane
+			// d.detailType = detailTypeEnv
+			// d.currentStage = chooseDetailAction
+			// d.currentUserFlow = listDetails
+		}
+		return
+	}
+
+	switch d.activePane {
+	case envPane:
+		d.activePane = detailDisplayPane
+		d.currentStage = deleteDetailView
+	case aliasPane:
+		d.activePane = envPane
+		// d.detailType = detailTypeEnv
+	case detailDisplayPane:
+		d.activePane = detailActionPane
+		d.currentStage = deleteDetailConfirm
+	case detailActionPane:
+		switch d.currentStage {
+		case deleteDetailConfirm:
+			d.currentStage = deleteDetailCancel
+		case deleteDetailCancel:
+			d.activePane = aliasPane
+			// d.detailType = detailTypeAlias
+			// d.currentStage = chooseDetailAction
+			// d.currentUserFlow = listDetails
+		}
+	}
+}
+
 func (d *DetailPage) handleEnter() tea.Cmd {
 	var cmd tea.Cmd
 	switch d.currentUserFlow {
 	case listDetails, viewDetail:
 		cmd = d.handleListDetailsEnter()
 	case newDetail, updateDetail:
-		cmd = d.handleNewDetailEnter()
+		cmd = d.handleEditDetailEnter()
+	case deleteDetail:
+		cmd = d.handleDeleteDetailEnter()
 	default:
 		return nil
 	}
@@ -792,7 +853,7 @@ func (d *DetailPage) handleListDetailsEnter() tea.Cmd {
 	return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 }
 
-func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
+func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 	d.resetInfoBag()
 	switch d.currentStage {
 	case editDetailKey:
@@ -902,6 +963,10 @@ func (d *DetailPage) handleNewDetailEnter() tea.Cmd {
 		d.updatePaneStyles()
 		return nil
 	}
+	return nil
+}
+
+func (d *DetailPage) handleDeleteDetailEnter() tea.Cmd {
 	return nil
 }
 
@@ -1178,6 +1243,56 @@ func (d *DetailPage) viewEditDetail() string {
 	)
 }
 
+func (d *DetailPage) viewDeleteDetail() string {
+	return lipgloss.Place(
+		d.width,
+		d.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
+			lipgloss.Center,
+			d.titleStyle.Render(d.generateTitle()),
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					d.headingStyle.Render(d.generateHeading("Envs")),
+					d.envStyle.Render(d.envList.View()),
+					d.headingStyle.Render(d.generateHeading("Aliases")),
+					d.aliasStyle.Render(d.aliasList.View()),
+				),
+				lipgloss.JoinVertical(
+					lipgloss.Center,
+					"",
+					d.displayStyle.Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.keyDisplayStyle.Render("Name: "),
+								d.keyTextArea.View(),
+							),
+							lipgloss.JoinHorizontal(
+								lipgloss.Left,
+								d.valueDisplayStyle.Render("Value: "),
+								d.valueTextArea.View(),
+							),
+						),
+					),
+					d.actionsStyle.Render(
+						lipgloss.JoinHorizontal(
+							lipgloss.Left,
+							d.deleteButton.Render("Delete"),
+							d.cancelButton.Render("Cancel"),
+						),
+					),
+				),
+			),
+			d.helpMenu.View(d.keys),
+		),
+	)
+}
+
 func (d *DetailPage) Init() tea.Cmd {
 	return nil
 }
@@ -1254,6 +1369,8 @@ func (d *DetailPage) View() string {
 		return d.viewViewDetail()
 	case newDetail, updateDetail:
 		return d.viewEditDetail()
+	case deleteDetail:
+		return d.viewDeleteDetail()
 	}
 	return "detail page.."
 }
