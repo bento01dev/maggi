@@ -24,11 +24,7 @@ type retrieveDetailsMsg struct {
 	err     error
 }
 
-type detailEditedMsg struct {
-	detail data.Detail
-}
-
-type detailDeletedMsg struct{}
+type detailEditedMsg struct{}
 
 const (
 	defaultDPWidth       int = 120
@@ -138,10 +134,9 @@ func (h detailHelpKeys) FullHelp() [][]key.Binding {
 
 type detailModel interface {
 	GetAll(profileId int) ([]data.Detail, error)
-	Add(key string, value string, detailType data.DetailType, profileID int) (data.Detail, error)
-	Update(detail data.Detail, key string, value string) (data.Detail, error)
+	Add(key string, value string, detailType data.DetailType, profileID int) (*data.Detail, error)
+	Update(detail data.Detail, key string, value string) (*data.Detail, error)
 	Delete(detail data.Detail) error
-	DeleteAll(profileID int) error
 }
 
 type DetailPage struct {
@@ -310,45 +305,14 @@ func createTextInput(enabled bool, placeholder string, value string, width int, 
 }
 
 func (d *DetailPage) getDetails() tea.Msg {
-	// res, err := d.detailModel.GetAll(d.currentProfile.ID)
-	// if err != nil {
-	// 	return retrieveDetailsMsg{err: err}
-	// }
-	// return retrieveDetailsMsg{details: res}
-	res := []data.Detail{
-		{
-			ID:         1,
-			Key:        "ENV_1",
-			Value:      "VALUE_1",
-			DetailType: data.EnvDetail,
-			ProfileID:  1,
-		},
-		{
-			ID:         2,
-			Key:        "ENV_2",
-			Value:      "VALUE_2",
-			DetailType: data.EnvDetail,
-			ProfileID:  1,
-		},
-		{
-			ID:         3,
-			Key:        "ALIAS_1",
-			Value:      "VALUE_1",
-			DetailType: data.AliasDetail,
-			ProfileID:  1,
-		},
-		{
-			ID:         4,
-			Key:        "ALIAS_2",
-			Value:      "VALUE_2",
-			DetailType: data.AliasDetail,
-			ProfileID:  1,
-		},
+	res, err := d.detailModel.GetAll(d.currentProfile.ID)
+	if err != nil {
+		return retrieveDetailsMsg{err: err}
 	}
 	return retrieveDetailsMsg{details: res}
 }
 
-func (d *DetailPage) addDetail(key, value string) (data.Detail, error) {
+func (d *DetailPage) addDetail(key, value string) (*data.Detail, error) {
 	var dataDetailType data.DetailType
 	switch d.detailType {
 	case detailTypeAlias:
@@ -356,42 +320,36 @@ func (d *DetailPage) addDetail(key, value string) (data.Detail, error) {
 	case detailTypeEnv:
 		dataDetailType = data.EnvDetail
 	}
-	// detail, err := d.detailModel.Add(key, value, dataDetailType, d.currentProfile.ID)
-	return data.Detail{Key: key, Value: value, DetailType: dataDetailType, ProfileID: d.currentProfile.ID}, nil
+	detail, err := d.detailModel.Add(key, value, dataDetailType, d.currentProfile.ID)
+	if err != nil {
+		return nil, err
+	}
+	return detail, nil
 }
 
-func (d *DetailPage) updateDetail(key, value string) (data.Detail, error) {
-	// detail, err := d.detailModel.Update(*d.currentDetail, key, value)
-	return data.Detail{Key: key, Value: value, DetailType: d.currentDetail.DetailType, ProfileID: d.currentDetail.ID}, nil
+func (d *DetailPage) updateDetail(key, value string) (*data.Detail, error) {
+	detail, err := d.detailModel.Update(*d.currentDetail, key, value)
+	if err != nil {
+		return nil, err
+	}
+	return detail, err
 }
 
 func (d *DetailPage) deleteDetail() error {
-	return nil
+	err := d.detailModel.Delete(*d.currentDetail)
+	return err
 }
 
-func (d *DetailPage) resetDetails(detail data.Detail) error {
-	if d.currentUserFlow == newDetail {
-		d.details = append(d.details, detail)
-		return nil
+func (d *DetailPage) resetDetails() error {
+	details, err := d.detailModel.GetAll(d.currentProfile.ID)
+	if err != nil {
+		return err
 	}
-    if d.currentUserFlow == deleteDetail {
-        var pos int
-        for i, existingDetail := range d.details {
-            if existingDetail.ID == detail.ID {
-                pos = i 
-                break
-            }
-        }
-        d.details = append(d.details[:pos], d.details[pos+1:]...)
-    }
-	for i, existingDetail := range d.details {
-		if existingDetail.ID == detail.ID {
-			existingDetail.Key = detail.Key
-			existingDetail.Value = detail.Value
-			d.details[i] = existingDetail
-		}
+	d.details = details
+	if len(d.details) == 0 {
+		d.emptyDisplay = true
 	}
-	return nil
+	return err
 }
 
 func (d *DetailPage) setDetailLists() {
@@ -649,7 +607,6 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 		case detailDisplayPane:
 			d.activePane = envPane
 			d.detailType = detailTypeEnv
-			// d.currentUserFlow = listDetails
 		}
 		return
 	}
@@ -668,7 +625,6 @@ func (d *DetailPage) handleListDetailsTab(shift bool) {
 	case detailActionPane:
 		d.activePane = aliasPane
 		d.detailType = detailTypeAlias
-		// d.currentUserFlow = listDetails
 	case detailDisplayPane:
 		d.activePane = detailActionPane
 	}
@@ -694,9 +650,7 @@ func (d *DetailPage) handleEditDetailTab(shift bool) {
 			switch d.currentStage {
 			case editDetailKey:
 				d.activePane = envPane
-				// d.detailType = detailTypeEnv
 				d.currentStage = chooseDetailAction
-				// d.currentUserFlow = listDetails
 			case editDetailValue:
 				d.currentStage = editDetailKey
 			}
@@ -724,9 +678,7 @@ func (d *DetailPage) handleEditDetailTab(shift bool) {
 			d.currentStage = editDetailCancel
 		case editDetailCancel:
 			d.activePane = aliasPane
-			// d.detailType = detailTypeAlias
 			d.currentStage = chooseDetailAction
-			// d.currentUserFlow = listDetails
 		}
 	}
 }
@@ -736,7 +688,6 @@ func (d *DetailPage) handleDeleteDetailTab(shift bool) {
 		switch d.activePane {
 		case envPane:
 			d.activePane = aliasPane
-			// d.detailType = detailTypeAlias
 		case aliasPane:
 			d.activePane = detailActionPane
 			d.currentStage = deleteDetailConfirm
@@ -750,9 +701,7 @@ func (d *DetailPage) handleDeleteDetailTab(shift bool) {
 			}
 		case detailDisplayPane:
 			d.activePane = envPane
-			// d.detailType = detailTypeEnv
 			d.currentStage = chooseDetailAction
-			// d.currentUserFlow = listDetails
 		}
 		return
 	}
@@ -763,7 +712,6 @@ func (d *DetailPage) handleDeleteDetailTab(shift bool) {
 		d.currentStage = deleteDetailView
 	case aliasPane:
 		d.activePane = envPane
-		// d.detailType = detailTypeEnv
 	case detailDisplayPane:
 		d.activePane = detailActionPane
 		d.currentStage = deleteDetailConfirm
@@ -773,9 +721,7 @@ func (d *DetailPage) handleDeleteDetailTab(shift bool) {
 			d.currentStage = deleteDetailCancel
 		case deleteDetailCancel:
 			d.activePane = aliasPane
-			// d.detailType = detailTypeAlias
 			d.currentStage = chooseDetailAction
-			// d.currentUserFlow = listDetails
 		}
 	}
 }
@@ -969,36 +915,21 @@ func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 		}
 
 		return func() tea.Msg {
-			var detail data.Detail
 			var err error
 			switch d.currentUserFlow {
 			case newDetail:
-				detail, err = d.addDetail(key, value)
+				_, err = d.addDetail(key, value)
 			case updateDetail:
-				detail, err = d.updateDetail(key, value)
+				_, err = d.updateDetail(key, value)
 			}
 			if err != nil {
 				return IssueMsg{Inner: err}
 			}
-			return detailEditedMsg{detail: detail}
+			return detailEditedMsg{}
 		}
 	case editDetailCancel:
 		d.handleCancel()
 		return nil
-		// d.currentStage = chooseDetailAction
-		// switch d.detailType {
-		// case detailTypeAlias:
-		// 	d.activePane = aliasPane
-		// case detailTypeEnv:
-		// 	d.activePane = envPane
-		// default:
-		// 	d.activePane = envPane
-		// }
-		// d.keyInput.SetValue("")
-		// d.valueInput.SetValue("")
-		// d.currentUserFlow = listDetails
-		// d.updatePaneStyles()
-		// return nil
 	}
 	return nil
 }
@@ -1025,7 +956,7 @@ func (d *DetailPage) handleDeleteDetailEnter() tea.Cmd {
 			if err != nil {
 				return IssueMsg{Inner: err}
 			}
-            return detailEditedMsg{*d.currentDetail}
+			return detailEditedMsg{}
 		}
 	}
 	return nil
@@ -1392,7 +1323,7 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.setDetailLists()
 		d.setActionsList()
 	case detailEditedMsg:
-		err := d.resetDetails(msg.detail)
+		err := d.resetDetails()
 		if err != nil {
 			return d, func() tea.Msg {
 				return IssueMsg{Inner: err}

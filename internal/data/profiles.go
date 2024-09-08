@@ -20,12 +20,12 @@ func (p *Profiles) GetAll() ([]Profile, error) {
 	defer rows.Close()
 	profiles := []Profile{}
 	for rows.Next() {
-		p := &Profile{}
-		err = rows.Scan(&p.ID, &p.Name)
+		profile := &Profile{}
+		err = rows.Scan(&profile.ID, &profile.Name)
 		if err != nil {
 			return nil, err
 		}
-		profiles = append(profiles, *p)
+		profiles = append(profiles, *profile)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
