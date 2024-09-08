@@ -104,7 +104,7 @@ func NewMaggiModel(debugFlag bool, dataModel data.DataModel) *MaggiModel {
 	return &MaggiModel{
 		pages: map[pageType]Page{
 			issue:   NewIssuePage(debugFlag),
-			profile: NewProfilePage(dataModel.Profiles),
+			profile: NewProfilePage(dataModel.Profiles, dataModel.Details),
 			detail:  NewDetailPage(dataModel.Details),
 		},
 	}

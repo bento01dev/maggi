@@ -140,6 +140,10 @@ type profileModel interface {
 	Delete(profile data.Profile) error
 }
 
+type profileDetailModel interface {
+	DeleteAll(profileID int) error
+}
+
 type ProfilePage struct {
 	newProfileOption  bool
 	infoFlag          bool
@@ -150,6 +154,7 @@ type ProfilePage struct {
 	activePane        profilePagePane
 	currentStage      profileStage
 	profileModel      profileModel
+	detailModel       profileDetailModel
 	currentProfile    *data.Profile
 	infoMsg           string
 	actions           []string
@@ -169,7 +174,7 @@ type ProfilePage struct {
 	issuesStyle       lipgloss.Style
 }
 
-func NewProfilePage(profileDataModel profileModel) *ProfilePage {
+func NewProfilePage(profileDataModel profileModel, detailDataModel profileDetailModel) *ProfilePage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
 	descStyle := lipgloss.NewStyle().Foreground(muted)
@@ -226,6 +231,7 @@ func NewProfilePage(profileDataModel profileModel) *ProfilePage {
 
 	return &ProfilePage{
 		profileModel:      profileDataModel,
+		detailModel:       detailDataModel,
 		helpMenu:          helpMenu,
 		keys:              keys,
 		actionsStyle:      actionsStyle,
@@ -332,10 +338,17 @@ func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error
 }
 
 func (p *ProfilePage) deleteProfile(profile *data.Profile) error {
-	err := p.profileModel.Delete(*profile)
+	//TODO: need to switch this to transactions
+	err := p.detailModel.DeleteAll(profile.ID)
 	if err != nil {
 		return err
 	}
+
+	err = p.profileModel.Delete(*profile)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
