@@ -1,6 +1,9 @@
 package data
 
-import "database/sql"
+import (
+	"database/sql"
+	"errors"
+)
 
 type Profile struct {
 	ID   int
@@ -57,8 +60,35 @@ func (p *Profiles) Update(profile Profile, newName string) (Profile, error) {
 	return profile, nil
 }
 
-func (p *Profiles) Delete(profile Profile) error {
+func (p *Profiles) Delete(profile Profile, deleteDetailsFn func(tx *sql.Tx, profileID int) error) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return errors.Join(err, rollbackErr)
+		}
+		return err
+	}
+
+	err = deleteDetailsFn(tx, profile.ID)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return errors.Join(err, rollbackErr)
+		}
+		return err
+	}
+
 	stmt := "DELETE FROM profiles WHERE id = ?;"
-	_, err := p.db.Exec(stmt, profile.ID)
-	return err
+	_, err = tx.Exec(stmt, profile.ID)
+
+	err = tx.Commit()
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return errors.Join(err, rollbackErr)
+		}
+		return err
+	}
+	return nil
 }

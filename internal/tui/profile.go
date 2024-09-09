@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -137,11 +138,11 @@ type profileModel interface {
 	GetAll() ([]data.Profile, error)
 	Add(name string) (data.Profile, error)
 	Update(profile data.Profile, newName string) (data.Profile, error)
-	Delete(profile data.Profile) error
+	Delete(profile data.Profile, deleteDetailsFn func(tx *sql.Tx, profileID int) error) error
 }
 
 type profileDetailModel interface {
-	DeleteAll(profileID int) error
+	DeleteAll(tx *sql.Tx, profileID int) error
 }
 
 type ProfilePage struct {
@@ -338,13 +339,7 @@ func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error
 }
 
 func (p *ProfilePage) deleteProfile(profile *data.Profile) error {
-	//TODO: need to switch this to transactions
-	err := p.detailModel.DeleteAll(profile.ID)
-	if err != nil {
-		return err
-	}
-
-	err = p.profileModel.Delete(*profile)
+	err := p.profileModel.Delete(*profile, p.detailModel.DeleteAll)
 	if err != nil {
 		return err
 	}

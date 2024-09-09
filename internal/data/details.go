@@ -87,8 +87,8 @@ func (d *Details) Delete(detail Detail) error {
 	return err
 }
 
-func (d *Details) DeleteAll(profileID int) error {
+func (d *Details) DeleteAll(tx *sql.Tx, profileID int) error {
 	stmt := "DELETE FROM details WHERE profile_id = ?;"
-	_, err := d.db.Exec(stmt, profileID)
+	_, err := tx.Exec(stmt, profileID)
 	return err
 }

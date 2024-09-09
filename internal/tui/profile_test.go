@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"database/sql"
 	"errors"
 	"reflect"
 	"strings"
@@ -16,7 +17,7 @@ type profileModelStub struct {
 	getAll        func() ([]data.Profile, error)
 	add           func(name string) (data.Profile, error)
 	update        func(profile data.Profile, newName string) (data.Profile, error)
-	deleteProfile func(profile data.Profile) error
+	deleteProfile func(profile data.Profile, deleteDetailFn func(tx *sql.Tx, profileID int) error) error
 }
 
 func (ps profileModelStub) GetAll() ([]data.Profile, error) {
@@ -31,8 +32,16 @@ func (ps profileModelStub) Update(profile data.Profile, newName string) (data.Pr
 	return ps.update(profile, newName)
 }
 
-func (ps profileModelStub) Delete(profile data.Profile) error {
-	return ps.deleteProfile(profile)
+func (ps profileModelStub) Delete(profile data.Profile, deleteDetailFn func(tx *sql.Tx, profileID int) error) error {
+	return ps.deleteProfile(profile, deleteDetailFn)
+}
+
+type detailModelStub struct {
+	deleteAll func(tx *sql.Tx, profileID int) error
+}
+
+func (ds detailModelStub) DeleteAll(tx *sql.Tx, profileID int) error {
+	return ds.deleteAll(tx, profileID)
 }
 
 func TestResetInfoBag(t *testing.T) {
@@ -58,7 +67,7 @@ func TestResetInfoBag(t *testing.T) {
 		},
 	}
 
-	profilePage := NewProfilePage(nil)
+	profilePage := NewProfilePage(nil, nil)
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			profilePage.infoFlag = test.infoFlag
@@ -125,7 +134,7 @@ func TestGetProfiles(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{getAll: testcase.getAll})
+			profilePage := NewProfilePage(profileModelStub{getAll: testcase.getAll}, nil)
 			msg := profilePage.getProfiles()
 			assert.Equal(t, msg.err, testcase.err)
 			assert.Equal(t, msg.profiles, testcase.expected)
@@ -163,7 +172,7 @@ func TestAddProfile(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{add: testcase.add})
+			profilePage := NewProfilePage(profileModelStub{add: testcase.add}, detailModelStub{})
 			profilePage.profiles = testcase.pre
 			err := profilePage.addProfile(testcase.profileName)
 			assert.Equal(t, err, testcase.err)
@@ -188,7 +197,7 @@ func TestGetItemsMaxLen(t *testing.T) {
 		},
 	}
 
-	profilePage := NewProfilePage(profileModelStub{})
+	profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
 			res := profilePage.getItemsMaxLen(testcase.elems)
@@ -217,7 +226,7 @@ func TestCheckDuplicate(t *testing.T) {
 		},
 	}
 
-	profilePage := NewProfilePage(profileModelStub{})
+	profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
 			profilePage.profiles = testcase.profiles
@@ -271,7 +280,7 @@ func TestResetProfiles(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{getAll: testcase.getAll})
+			profilePage := NewProfilePage(profileModelStub{getAll: testcase.getAll}, detailModelStub{})
 			profilePage.profiles = testcase.pre
 			err := profilePage.resetProfiles()
 			assert.Equal(t, err, testcase.err)
@@ -298,7 +307,7 @@ func TestUpdateActionStyle(t *testing.T) {
 		},
 	}
 
-	profilePage := NewProfilePage(profileModelStub{})
+	profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
 			profilePage.activePane = testcase.activePane
@@ -329,7 +338,7 @@ func TestUpdateProfileStyle(t *testing.T) {
 		},
 	}
 
-	profilePage := NewProfilePage(profileModelStub{})
+	profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
 			profilePage.activePane = testcase.activePane
@@ -360,7 +369,7 @@ func TestHandleListProfilesTab(t *testing.T) {
 		},
 	}
 
-	profilePage := NewProfilePage(profileModelStub{})
+	profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
 			profilePage.activePane = testcase.pre
@@ -451,7 +460,7 @@ func TestHandleNewProfileTab(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.activePane = testcase.activePane
 			profilePage.currentStage = testcase.currentStage
 			profilePage.infoFlag = testcase.preInfoFlag
@@ -548,7 +557,7 @@ func TestHandleUpdateProfileTab(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.activePane = testcase.activePane
 			profilePage.currentStage = testcase.currentStage
 			profilePage.infoFlag = testcase.preInfoFlag
@@ -633,7 +642,7 @@ func TestHandleDeleteProfileTab(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{deleteAll: func(tx *sql.Tx, profileID int) error { return nil }})
 			profilePage.activePane = testcase.activePane
 			profilePage.currentStage = testcase.currentStage
 			profilePage.handleDeleteProfileTab(testcase.shift)
@@ -645,7 +654,7 @@ func TestHandleDeleteProfileTab(t *testing.T) {
 
 func TestHandleEsc(t *testing.T) {
 	t.Run("handle esc should reset the fields from any stage", func(t *testing.T) {
-		profilePage := NewProfilePage(profileModelStub{})
+		profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 		profilePage.currentUserFlow = updateProfile
 		profilePage.activePane = actionsPane
 		profilePage.textInput.SetValue("test")
@@ -711,7 +720,7 @@ func TestGenerateTitle(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.currentUserFlow = testcase.currentUserFlow
 			profilePage.currentProfile = &testcase.currentProfile
 			res := profilePage.generateTitle()
@@ -749,7 +758,7 @@ func TestHandleListProfilesEnter(t *testing.T) {
 
 	for _, testcase := range profilePaneTestcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.activePane = profilesPane
 			profilePage.profileList = testcase.profileList
 			profilePage.profileList.Select(0)
@@ -789,7 +798,7 @@ func TestHandleListProfilesEnter(t *testing.T) {
 
 	for _, testcase := range actionPaneTestcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.activePane = actionsPane
 			profilePage.actionList = testcase.actionList
 			profilePage.actionList.Select(0)
@@ -861,7 +870,7 @@ func TestHandleNewProfileEnter(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.currentStage = testcase.currentStage
 			profilePage.textInput.SetValue(testcase.textInputValue)
 			profilePage.profiles = testcase.profiles
@@ -934,7 +943,7 @@ func TestHandleUpdateProfileEnter(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{})
 			profilePage.currentStage = testcase.currentStage
 			profilePage.textInput.SetValue(testcase.textInputValue)
 			profilePage.profiles = testcase.profiles
@@ -979,7 +988,7 @@ func TestHandleDeleteProfileEnter(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			profilePage := NewProfilePage(profileModelStub{})
+			profilePage := NewProfilePage(profileModelStub{}, detailModelStub{deleteAll: func(tx *sql.Tx, profileID int) error { return nil }})
 			profilePage.currentStage = testcase.currentStage
 			profilePage.currentProfile = testcase.currentProfile
 			profilePage.handleDeleteProfileEnter()
