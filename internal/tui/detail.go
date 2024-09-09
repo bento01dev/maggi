@@ -19,10 +19,10 @@ type DetailStartMsg struct {
 	currentProfile data.Profile
 }
 
-type DetailDoneMsg struct {}
+type DetailDoneMsg struct{}
 
 func (d DetailDoneMsg) Next() pageType {
-    return profile
+	return profile
 }
 
 type retrieveDetailsMsg struct {
@@ -189,7 +189,6 @@ type DetailPage struct {
 	actions           []string
 }
 
-// TODO: the styling elements and help menu are duplicates of what is in profile. de-duplicate if needed later.
 func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
@@ -352,9 +351,6 @@ func (d *DetailPage) resetDetails() error {
 		return err
 	}
 	d.details = details
-	if len(d.details) == 0 {
-		d.emptyDisplay = true
-	}
 	return err
 }
 
@@ -548,15 +544,15 @@ func (d *DetailPage) checkIfKeyExists(key string) bool {
 }
 
 func (d *DetailPage) handleEsc() tea.Cmd {
-    if d.currentUserFlow == listDetails {
-        return func() tea.Msg {
-            return DetailDoneMsg{}
-        }
-    }
+	if d.currentUserFlow == listDetails {
+		return func() tea.Msg {
+			return DetailDoneMsg{}
+		}
+	}
 	d.currentUserFlow = listDetails
 	d.activePane = envPane
 	d.currentDetail = nil
-    d.emptyDisplay = true
+	d.emptyDisplay = true
 	d.infoMsg = ""
 	d.isErrInfo = false
 	d.infoFlag = false
@@ -565,7 +561,7 @@ func (d *DetailPage) handleEsc() tea.Cmd {
 	d.keyTextArea.SetValue("")
 	d.valueTextArea.SetValue("")
 	d.updatePaneStyles()
-    return nil
+	return nil
 }
 
 func (d *DetailPage) setTextAreaValues() {
@@ -1319,7 +1315,6 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			return d, d.handleEnter()
 		case tea.KeyEsc:
-			// d.handleEsc()
 			return d, d.handleEsc()
 		}
 	case retrieveDetailsMsg:
