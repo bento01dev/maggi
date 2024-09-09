@@ -19,6 +19,12 @@ type DetailStartMsg struct {
 	currentProfile data.Profile
 }
 
+type DetailDoneMsg struct {}
+
+func (d DetailDoneMsg) Next() pageType {
+    return profile
+}
+
 type retrieveDetailsMsg struct {
 	details []data.Detail
 	err     error
@@ -541,10 +547,16 @@ func (d *DetailPage) checkIfKeyExists(key string) bool {
 	return exists
 }
 
-func (d *DetailPage) handleEsc() {
+func (d *DetailPage) handleEsc() tea.Cmd {
+    if d.currentUserFlow == listDetails {
+        return func() tea.Msg {
+            return DetailDoneMsg{}
+        }
+    }
 	d.currentUserFlow = listDetails
 	d.activePane = envPane
 	d.currentDetail = nil
+    d.emptyDisplay = true
 	d.infoMsg = ""
 	d.isErrInfo = false
 	d.infoFlag = false
@@ -553,6 +565,7 @@ func (d *DetailPage) handleEsc() {
 	d.keyTextArea.SetValue("")
 	d.valueTextArea.SetValue("")
 	d.updatePaneStyles()
+    return nil
 }
 
 func (d *DetailPage) setTextAreaValues() {
@@ -1306,8 +1319,8 @@ func (d *DetailPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			return d, d.handleEnter()
 		case tea.KeyEsc:
-			d.handleEsc()
-			return d, nil
+			// d.handleEsc()
+			return d, d.handleEsc()
 		}
 	case retrieveDetailsMsg:
 		if msg.err != nil {
