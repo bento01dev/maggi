@@ -161,3 +161,55 @@ func TestDeleteDetail(t *testing.T) {
 		assert.NotNil(t, err)
 	})
 }
+
+func TestResetDetails(t *testing.T) {
+	t.Run("set details based on get all result", func(t *testing.T) {
+		details := []data.Detail{
+			{
+				Key:        "key",
+				Value:      "value",
+				ProfileID:  1,
+				ID:         1,
+				DetailType: data.AliasDetail,
+			},
+		}
+		detailPage := NewDetailPage(detailModelStub{getAll: func(profileID int) ([]data.Detail, error) { return details, nil }})
+		err := detailPage.resetDetails()
+		assert.Nil(t, err)
+		assert.Equal(t, details, detailPage.details)
+	})
+
+	t.Run("keep old details on error", func(t *testing.T) {
+		details := []data.Detail{
+			{
+				Key:        "key",
+				Value:      "value",
+				ProfileID:  1,
+				ID:         1,
+				DetailType: data.AliasDetail,
+			},
+		}
+		detailPage := NewDetailPage(detailModelStub{getAll: func(profileID int) ([]data.Detail, error) { return nil, errors.New("unknown error") }})
+		detailPage.details = details
+		err := detailPage.resetDetails()
+		assert.NotNil(t, err)
+		assert.Equal(t, details, detailPage.details)
+	})
+}
+
+func TestUpdatePaneStyle(t *testing.T) {
+	testcases := []struct {
+		name              string
+		activePane        detailPagePane
+		currentStage      detailStage
+		displayStyle      lipgloss.Style
+		actionsStyle      lipgloss.Style
+		aliasStyle        lipgloss.Style
+		envStyle          lipgloss.Style
+		keyDisplayStyle   lipgloss.Style
+		valueDisplayStyle lipgloss.Style
+		confirmButton     lipgloss.Style
+		cancelButton      lipgloss.Style
+		deleteButton      lipgloss.Style
+	}{}
+}
