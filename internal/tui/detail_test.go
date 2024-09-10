@@ -503,96 +503,96 @@ func TestHandleListDetailsTab(t *testing.T) {
 		currentDetailType detailType
 		detailType        detailType
 	}{
-        {
-            name: "shift tab on env pane should move to alias pane and alias type",
-            shift: true,
-            currentActivePane: envPane,
-            activePane: aliasPane,
-            currentDetailType: detailTypeEnv,
-            detailType: detailTypeAlias,
-        },
-        {
-            name: "shift tab on alias pane should move to alias pane and alias type, if no display",
-            shift: true,
-            emptyDisplay: true,
-            currentActivePane: aliasPane,
-            activePane: envPane,
-            currentDetailType: detailTypeAlias,
-            detailType: detailTypeEnv,
-        },
-        {
-            name: "shift tab on alias pane should move to detail action pane, when there is a display",
-            shift: true,
-            currentActivePane: aliasPane,
-            activePane: detailActionPane,
-            currentDetailType: detailTypeAlias,
-            detailType: detailTypeAlias,
-        },
-        {
-            name: "shift tab on action pane should switch to display pane",
-            shift: true,
-            currentActivePane: detailActionPane,
-            activePane: detailDisplayPane,
-            currentDetailType: detailTypeAlias,
-            detailType: detailTypeAlias,
-        },
-        {
-            name: "shift tab on display pane should switch to env pane and detail type",
-            shift: true,
-            currentActivePane: detailDisplayPane,
-            activePane: envPane,
-            currentDetailType: detailTypeAlias,
-            detailType: detailTypeEnv,
-        },
-        {
-            name: "tab on env pane on empty display should switch to alias pane and detail type",
-            emptyDisplay: true,
-            currentActivePane: envPane,
-            activePane: aliasPane,
-            currentDetailType: detailTypeEnv,
-            detailType: detailTypeAlias,
-        },
-        {
-            name: "tab on env pane should switch to display pane when there is a display",
-            currentActivePane: envPane,
-            activePane: detailDisplayPane,
-            currentDetailType: detailTypeEnv,
-            detailType: detailTypeEnv,
-        },
-        {
-            name: "tab on alias pane should switch to env pane and detail type",
-            currentActivePane: aliasPane,
-            activePane: envPane,
-            currentDetailType: detailTypeAlias,
-            detailType: detailTypeEnv,
-        },
-        {
-            name: "tab on action pane should switch to alias pane and detail type",
-            currentActivePane: detailActionPane,
-            activePane: aliasPane,
-            currentDetailType: detailTypeEnv,
-            detailType: detailTypeAlias,
-        },
-        {
-            name: "tab on display pane should move to action pane",
-            currentActivePane: detailDisplayPane,
-            activePane: detailActionPane,
-            currentDetailType: detailTypeEnv,
-            detailType: detailTypeEnv,
-        },
-    }
+		{
+			name:              "shift tab on env pane should move to alias pane and alias type",
+			shift:             true,
+			currentActivePane: envPane,
+			activePane:        aliasPane,
+			currentDetailType: detailTypeEnv,
+			detailType:        detailTypeAlias,
+		},
+		{
+			name:              "shift tab on alias pane should move to alias pane and alias type, if no display",
+			shift:             true,
+			emptyDisplay:      true,
+			currentActivePane: aliasPane,
+			activePane:        envPane,
+			currentDetailType: detailTypeAlias,
+			detailType:        detailTypeEnv,
+		},
+		{
+			name:              "shift tab on alias pane should move to detail action pane, when there is a display",
+			shift:             true,
+			currentActivePane: aliasPane,
+			activePane:        detailActionPane,
+			currentDetailType: detailTypeAlias,
+			detailType:        detailTypeAlias,
+		},
+		{
+			name:              "shift tab on action pane should switch to display pane",
+			shift:             true,
+			currentActivePane: detailActionPane,
+			activePane:        detailDisplayPane,
+			currentDetailType: detailTypeAlias,
+			detailType:        detailTypeAlias,
+		},
+		{
+			name:              "shift tab on display pane should switch to env pane and detail type",
+			shift:             true,
+			currentActivePane: detailDisplayPane,
+			activePane:        envPane,
+			currentDetailType: detailTypeAlias,
+			detailType:        detailTypeEnv,
+		},
+		{
+			name:              "tab on env pane on empty display should switch to alias pane and detail type",
+			emptyDisplay:      true,
+			currentActivePane: envPane,
+			activePane:        aliasPane,
+			currentDetailType: detailTypeEnv,
+			detailType:        detailTypeAlias,
+		},
+		{
+			name:              "tab on env pane should switch to display pane when there is a display",
+			currentActivePane: envPane,
+			activePane:        detailDisplayPane,
+			currentDetailType: detailTypeEnv,
+			detailType:        detailTypeEnv,
+		},
+		{
+			name:              "tab on alias pane should switch to env pane and detail type",
+			currentActivePane: aliasPane,
+			activePane:        envPane,
+			currentDetailType: detailTypeAlias,
+			detailType:        detailTypeEnv,
+		},
+		{
+			name:              "tab on action pane should switch to alias pane and detail type",
+			currentActivePane: detailActionPane,
+			activePane:        aliasPane,
+			currentDetailType: detailTypeEnv,
+			detailType:        detailTypeAlias,
+		},
+		{
+			name:              "tab on display pane should move to action pane",
+			currentActivePane: detailDisplayPane,
+			activePane:        detailActionPane,
+			currentDetailType: detailTypeEnv,
+			detailType:        detailTypeEnv,
+		},
+	}
 
-    for _, testcase := range testcases {
-        t.Run(testcase.name, func(t *testing.T) {
-            detailPage := NewDetailPage(detailModelStub{})
-            detailPage.emptyDisplay = testcase.emptyDisplay
-            detailPage.activePane = testcase.currentActivePane
-            detailPage.detailType = testcase.currentDetailType
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			detailPage := NewDetailPage(detailModelStub{})
+			detailPage.emptyDisplay = testcase.emptyDisplay
+			detailPage.activePane = testcase.currentActivePane
+			detailPage.detailType = testcase.currentDetailType
 
-            detailPage.handleListDetailsTab(testcase.shift)
+			detailPage.handleListDetailsTab(testcase.shift)
 
-            assert.Equal(t, testcase.activePane, detailPage.activePane)
-            assert.Equal(t, testcase.detailType, detailPage.detailType)
-        })
-    }
+			assert.Equal(t, testcase.activePane, detailPage.activePane)
+			assert.Equal(t, testcase.detailType, detailPage.detailType)
+		})
+	}
 }
