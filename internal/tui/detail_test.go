@@ -596,3 +596,237 @@ func TestHandleListDetailsTab(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleEditDetailTab(t *testing.T) {
+	testcases := []struct {
+		name          string
+		shift         bool
+		oldActivePane detailPagePane
+		newActivePane detailPagePane
+		oldStage      detailStage
+		newStage      detailStage
+	}{
+		{
+			name:          "shift tab on env pane should change to alias pane",
+			shift:         true,
+			oldActivePane: envPane,
+			newActivePane: aliasPane,
+			oldStage:      chooseDetailAction,
+			newStage:      chooseDetailAction,
+		},
+		{
+			name:          "shift tab on alias pane should change to action pane and cancel button",
+			shift:         true,
+			oldActivePane: aliasPane,
+			newActivePane: detailActionPane,
+			oldStage:      chooseDetailAction,
+			newStage:      editDetailCancel,
+		},
+		{
+			name:          "shift tab on action pane should change to display pane and value edit if confirm stage",
+			shift:         true,
+			oldActivePane: detailActionPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailConfirm,
+			newStage:      editDetailValue,
+		},
+		{
+			name:          "shift tab on action pane should change to confirm stage if current stage is cancel",
+			shift:         true,
+			oldActivePane: detailActionPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailCancel,
+			newStage:      editDetailConfirm,
+		},
+		{
+			name:          "shift tab on display pane should switch env pane and choose action if edit key current stage",
+			shift:         true,
+			oldActivePane: detailDisplayPane,
+			newActivePane: envPane,
+			oldStage:      editDetailKey,
+			newStage:      chooseDetailAction,
+		},
+		{
+			name:          "shift tab on display pane should switch to detail key if current stage is detail value",
+			shift:         true,
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailKey,
+		},
+		{
+			name:          "tab on env pane should switch to display pane and set stage to edit key",
+			shift:         false,
+			oldActivePane: envPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      chooseDetailAction,
+			newStage:      editDetailKey,
+		},
+		{
+			name:          "tab on alias pane should switch to env pane",
+			shift:         false,
+			oldActivePane: aliasPane,
+			newActivePane: envPane,
+			oldStage:      chooseDetailAction,
+			newStage:      chooseDetailAction,
+		},
+		{
+			name:          "tab on display pane should switch to value detail if current stage is key detail",
+			shift:         false,
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailValue,
+		},
+		{
+			name:          "tab on value detail should switch stage to confir mand pane to action pane",
+			shift:         false,
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailConfirm,
+		},
+		{
+			name:          "tab on action pane should switch to cancel if current stage is confirm",
+			shift:         false,
+			oldActivePane: detailActionPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailConfirm,
+			newStage:      editDetailCancel,
+		},
+		{
+			name:          "tab on action pane should switch to alias pane and choose action if stage is detail cancel",
+			shift:         false,
+			oldActivePane: detailActionPane,
+			newActivePane: aliasPane,
+			oldStage:      editDetailCancel,
+			newStage:      chooseDetailAction,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			detailPage := NewDetailPage(detailModelStub{})
+			detailPage.activePane = testcase.oldActivePane
+			detailPage.currentStage = testcase.oldStage
+
+			detailPage.handleEditDetailTab(testcase.shift)
+
+			assert.Equal(t, testcase.newActivePane, detailPage.activePane)
+			assert.Equal(t, testcase.newStage, detailPage.currentStage)
+		})
+	}
+}
+
+func TestHandleDeleteDetailTab(t *testing.T) {
+	testcases := []struct {
+		name          string
+		shift         bool
+		oldActivePane detailPagePane
+		newActivePane detailPagePane
+		oldStage      detailStage
+		newStage      detailStage
+	}{
+		{
+			name:          "shift tab should switch env pane to alias pane",
+			shift:         true,
+			oldActivePane: envPane,
+			newActivePane: aliasPane,
+			oldStage:      chooseDetailAction,
+			newStage:      chooseDetailAction,
+		},
+		{
+			name:          "shift tab on alias pane should switch active pane to action pane and stage to detail confirm",
+			shift:         true,
+			oldActivePane: aliasPane,
+			newActivePane: detailActionPane,
+			oldStage:      chooseDetailAction,
+			newStage:      deleteDetailConfirm,
+		},
+		{
+			name:          "shift tab on action pane should switch stage to cancel if current stage is confirm",
+			shift:         true,
+			oldActivePane: detailActionPane,
+			newActivePane: detailActionPane,
+			oldStage:      deleteDetailConfirm,
+			newStage:      deleteDetailCancel,
+		},
+		{
+			name:          "shift tab on action pane should switch active pane to display pane and stage to view if current stage is cancel",
+			shift:         true,
+			oldActivePane: detailActionPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      deleteDetailCancel,
+			newStage:      deleteDetailView,
+		},
+		{
+			name:          "shift tab on display pane should switch to env pane and stage to choose detail action",
+			shift:         true,
+			oldActivePane: detailDisplayPane,
+			newActivePane: envPane,
+			oldStage:      deleteDetailView,
+			newStage:      chooseDetailAction,
+		},
+		{
+			name:          "tab should switch pane to display pane and stage to detail view if current pane is env pane",
+			shift:         false,
+			oldActivePane: envPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      chooseDetailAction,
+			newStage:      deleteDetailView,
+		},
+		{
+			name:          "tab on alias pane should switch to env pane",
+			shift:         false,
+			oldActivePane: aliasPane,
+			newActivePane: envPane,
+			oldStage:      chooseDetailAction,
+			newStage:      chooseDetailAction,
+		},
+		{
+			name:          "tab on display pane should switch to action pane and delete confirm",
+			shift:         false,
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailActionPane,
+			oldStage:      deleteDetailView,
+			newStage:      deleteDetailConfirm,
+		},
+		{
+			name:          "tab on action pane should switch to cancel if current stage is confirm",
+			shift:         false,
+			oldActivePane: detailActionPane,
+			newActivePane: detailActionPane,
+			oldStage:      deleteDetailConfirm,
+			newStage:      deleteDetailCancel,
+		},
+		{
+			name:          "tab on action pane should switch to cancel if current stage is confirm",
+			shift:         false,
+			oldActivePane: detailActionPane,
+			newActivePane: detailActionPane,
+			oldStage:      deleteDetailConfirm,
+			newStage:      deleteDetailCancel,
+		},
+		{
+			name:          "tab on action pane should switch to alias pane and stage to choose action if current stage is cancel",
+			shift:         false,
+			oldActivePane: detailActionPane,
+			newActivePane: aliasPane,
+			oldStage:      deleteDetailCancel,
+			newStage:      chooseDetailAction,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			detailPage := NewDetailPage(detailModelStub{})
+			detailPage.activePane = testcase.oldActivePane
+			detailPage.currentStage = testcase.oldStage
+
+			detailPage.handleDeleteDetailTab(testcase.shift)
+
+			assert.Equal(t, testcase.newActivePane, detailPage.activePane)
+			assert.Equal(t, testcase.newStage, detailPage.currentStage)
+		})
+	}
+}
