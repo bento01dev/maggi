@@ -830,3 +830,52 @@ func TestHandleDeleteDetailTab(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleCancel(t *testing.T) {
+	t.Run("sets values to default values on cancel", func(t *testing.T) {
+		detailPage := NewDetailPage(detailModelStub{})
+		detailPage.currentStage = editDetailCancel
+		detailPage.emptyDisplay = false
+		detailPage.keyInput.SetValue("test")
+		detailPage.valueInput.SetValue("test")
+		detailPage.keyTextArea.SetValue("test")
+		detailPage.valueTextArea.SetValue("test")
+		detailPage.currentUserFlow = updateDetail
+
+		detailPage.handleCancel()
+
+		assert.Equal(t, chooseDetailAction, detailPage.currentStage)
+		assert.True(t, detailPage.emptyDisplay)
+		assert.Equal(t, "", detailPage.keyInput.Value())
+		assert.Equal(t, "", detailPage.valueInput.Value())
+		assert.Equal(t, "", detailPage.keyTextArea.Value())
+		assert.Equal(t, "", detailPage.valueTextArea.Value())
+		assert.Equal(t, listDetails, detailPage.currentUserFlow)
+	})
+
+	t.Run("active pane set to alias pane if detail type is alias", func(t *testing.T) {
+		detailPage := NewDetailPage(detailModelStub{})
+		detailPage.detailType = detailTypeAlias
+
+		detailPage.handleCancel()
+
+		assert.Equal(t, aliasPane, detailPage.activePane)
+	})
+
+	t.Run("active pane set to env pane if detail type is env", func(t *testing.T) {
+		detailPage := NewDetailPage(detailModelStub{})
+		detailPage.detailType = detailTypeEnv
+
+		detailPage.handleCancel()
+
+		assert.Equal(t, envPane, detailPage.activePane)
+	})
+
+	t.Run("active pane set to env pane if detail type is not set", func(t *testing.T) {
+		detailPage := NewDetailPage(detailModelStub{})
+
+		detailPage.handleCancel()
+
+		assert.Equal(t, envPane, detailPage.activePane)
+	})
+}
