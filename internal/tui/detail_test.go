@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bento01dev/maggi/internal/data"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 )
@@ -878,4 +879,223 @@ func TestHandleCancel(t *testing.T) {
 
 		assert.Equal(t, envPane, detailPage.activePane)
 	})
+}
+
+func TestHandleListDetailsEnter(t *testing.T) {
+	testcases := []struct {
+		name             string
+		oldActivePane    detailPagePane
+		newActivePane    detailPagePane
+		oldUserFlow      detailsUserFlow
+		newUserFlow      detailsUserFlow
+		oldDetailType    detailType
+		newDetailType    detailType
+		oldCurrentDetail *data.Detail
+		newCurrentDetail *data.Detail
+		oldStage         detailStage
+		newStage         detailStage
+		actionList       list.Model
+		envList          list.Model
+		aliasList        list.Model
+		key              string
+		value            string
+		profileID        int
+	}{
+		{
+			name:             "enter on detail display pane should switch to action pane",
+			oldActivePane:    detailDisplayPane,
+			newActivePane:    detailActionPane,
+			oldUserFlow:      viewDetail,
+			newUserFlow:      viewDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeAlias,
+			oldCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			newCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			oldStage:         chooseDetailAction,
+			newStage:         chooseDetailAction,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "Add alias...", action: true}}, renderDetailActionItem, 30, 5, false),
+		},
+		{
+			name:             "enter on detail action pane should switch delete detail if next is delete",
+			oldActivePane:    detailActionPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      viewDetail,
+			newUserFlow:      deleteDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeAlias,
+			oldCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			newCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			oldStage:         chooseDetailAction,
+			newStage:         deleteDetailView,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Delete Alias", next: deleteDetail}, detailActionItem{description: "Update Alias", next: updateDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "Add alias...", action: true}}, renderDetailActionItem, 30, 5, false),
+		},
+		{
+			name:             "enter on detail action pane should switch update detail if next is update",
+			oldActivePane:    detailActionPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      viewDetail,
+			newUserFlow:      updateDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeAlias,
+			oldCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			newCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			oldStage:         chooseDetailAction,
+			newStage:         editDetailKey,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "Add alias...", action: true}}, renderDetailActionItem, 30, 5, false),
+			key:              "test",
+			value:            "test",
+		},
+		{
+			name:             "enter on detail action pane should switch update detail if next is update",
+			oldActivePane:    detailActionPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      viewDetail,
+			newUserFlow:      updateDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeAlias,
+			oldCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			newCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			oldStage:         chooseDetailAction,
+			newStage:         editDetailKey,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "Add alias...", action: true}}, renderDetailActionItem, 30, 5, false),
+			key:              "test",
+			value:            "test",
+		},
+		{
+			name:             "enter on alias pane should switch to item if there is an item selected",
+			oldActivePane:    aliasPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      listDetails,
+			newUserFlow:      viewDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeAlias,
+			oldCurrentDetail: nil,
+			newCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			oldStage:         chooseDetailAction,
+			newStage:         chooseDetailAction,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "test", value: "test", id: 1}}, renderDetailActionItem, 30, 5, false),
+			profileID:        1,
+		},
+		{
+			name:             "enter on alias pane should switch to new detail if its an add alias action",
+			oldActivePane:    aliasPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      listDetails,
+			newUserFlow:      newDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeAlias,
+			oldCurrentDetail: nil,
+			newCurrentDetail: nil,
+			oldStage:         chooseDetailAction,
+			newStage:         editDetailKey,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "Add alias...", action: true}}, renderDetailActionItem, 30, 5, false),
+			profileID:        1,
+		},
+		{
+			name:             "enter on env pane should switch to item if there is an item selected",
+			oldActivePane:    envPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      listDetails,
+			newUserFlow:      viewDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeEnv,
+			oldCurrentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", DetailType: data.AliasDetail, ProfileID: 1},
+			newCurrentDetail: &data.Detail{ID: 1, Key: "test_env", Value: "test", DetailType: data.EnvDetail, ProfileID: 1},
+			oldStage:         chooseDetailAction,
+			newStage:         chooseDetailAction,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "test_env", value: "test", id: 1}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "test", value: "test", id: 1}}, renderDetailActionItem, 30, 5, false),
+			profileID:        1,
+		},
+		{
+			name:             "enter on env pane should switch to new detail if its an add env action",
+			oldActivePane:    envPane,
+			newActivePane:    detailDisplayPane,
+			oldUserFlow:      listDetails,
+			newUserFlow:      newDetail,
+			oldDetailType:    detailTypeAlias,
+			newDetailType:    detailTypeEnv,
+			oldCurrentDetail: nil,
+			newCurrentDetail: nil,
+			oldStage:         chooseDetailAction,
+			newStage:         editDetailKey,
+			actionList:       GenerateList([]list.Item{detailActionItem{description: "Update Alias", next: updateDetail}, detailActionItem{description: "Delete Alias", next: deleteDetail}}, renderDetailActionItem, 30, 5, false),
+			envList:          GenerateList([]list.Item{detailItem{key: "Add env...", action: true}}, renderDetailActionItem, 30, 5, false),
+			aliasList:        GenerateList([]list.Item{detailItem{key: "Add alias...", action: true}}, renderDetailActionItem, 30, 5, false),
+			profileID:        1,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			detailPage := NewDetailPage(detailModelStub{})
+			detailPage.activePane = testcase.oldActivePane
+			detailPage.currentUserFlow = testcase.oldUserFlow
+			detailPage.detailType = testcase.oldDetailType
+			detailPage.currentDetail = testcase.oldCurrentDetail
+			detailPage.currentStage = testcase.oldStage
+			// not all lists are used. just setting them all in one test for convenience
+			detailPage.actionsList = testcase.actionList
+			detailPage.actionsList.Select(0)
+			detailPage.envList = testcase.envList
+			detailPage.envList.Select(0)
+			detailPage.aliasList = testcase.aliasList
+			detailPage.aliasList.Select(0)
+			detailPage.currentProfile.ID = testcase.profileID
+
+			detailPage.handleListDetailsEnter()
+
+			assert.Equal(t, testcase.newActivePane, detailPage.activePane)
+			assert.Equal(t, testcase.newUserFlow, detailPage.currentUserFlow)
+			assert.Equal(t, testcase.newDetailType, detailPage.detailType)
+			assert.Equal(t, testcase.newCurrentDetail, detailPage.currentDetail)
+			assert.Equal(t, testcase.newStage, detailPage.currentStage)
+			assert.Equal(t, testcase.key, detailPage.keyInput.Value())
+			assert.Equal(t, testcase.value, detailPage.valueInput.Value())
+		})
+	}
+}
+
+func TestHandleDetailDelete(t *testing.T) {
+	testcases := []struct {
+		name            string
+		oldActivePane   detailPagePane
+		newActivePane   detailPagePane
+		oldCurrentStage detailStage
+		newCurrentStage detailStage
+	}{
+        {
+            name: "enter on view switch to confirm",
+            oldActivePane: detailDisplayPane,
+            newActivePane: detailActionPane,
+            oldCurrentStage: deleteDetailView,
+            newCurrentStage: deleteDetailConfirm,
+        },
+    }
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			detailPage := NewDetailPage(detailModelStub{})
+			detailPage.activePane = testcase.oldActivePane
+			detailPage.currentStage = testcase.oldCurrentStage
+
+			detailPage.handleDeleteDetailEnter()
+
+			assert.Equal(t, testcase.newActivePane, detailPage.activePane)
+			assert.Equal(t, testcase.newCurrentStage, detailPage.currentStage)
+		})
+	}
 }
