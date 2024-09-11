@@ -1077,6 +1077,7 @@ func TestHandleDetailDelete(t *testing.T) {
 		oldCurrentStage detailStage
 		newCurrentStage detailStage
 	}{
+		//the other combosare handled by handleCancel and handleListDetailsEnter
 		{
 			name:            "enter on view switch to confirm",
 			oldActivePane:   detailDisplayPane,
@@ -1096,6 +1097,270 @@ func TestHandleDetailDelete(t *testing.T) {
 
 			assert.Equal(t, testcase.newActivePane, detailPage.activePane)
 			assert.Equal(t, testcase.newCurrentStage, detailPage.currentStage)
+		})
+	}
+}
+
+func TestHandleEDitDetailEnter(t *testing.T) {
+	testcases := []struct {
+		name          string
+		oldActivePane detailPagePane
+		newActivePane detailPagePane
+		oldStage      detailStage
+		newStage      detailStage
+		oldUserFlow   detailsUserFlow
+		infoFlag      bool
+		isErrInfo     bool
+		infoMsg       string
+		details       []data.Detail
+		currentDetail *data.Detail
+		key           string
+		value         string
+	}{
+		{
+			name:          "empty key in edit detail key should set info bag for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailKey,
+			oldUserFlow:   newDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid key. You can exit flow by pressing <esc> if needed",
+		},
+		{
+			name:          "duplicate key in edit detail key should set info bag for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailKey,
+			oldUserFlow:   newDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Key test already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!",
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+		},
+		{
+			name:          "correct key should move stage to next stage for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailValue,
+			oldUserFlow:   newDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test1",
+		},
+		{
+			name:          "empty key in edit detail key should set info bag for update detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailKey,
+			oldUserFlow:   updateDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid key. You can exit flow by pressing <esc> if needed",
+		},
+		{
+			name:          "duplicate key in edit detail key should set info bag for update detail if not current detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailKey,
+			oldUserFlow:   updateDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Key test already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!",
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			currentDetail: &data.Detail{ID: 2, Key: "test", Value: "test", ProfileID: 1},
+		},
+		{
+			name:          "key in duplicate key check should go through if editing the same detail in update detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailValue,
+			oldUserFlow:   updateDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			currentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", ProfileID: 1},
+		},
+		{
+			name:          "correct key should move stage to next stage for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailValue,
+			oldUserFlow:   updateDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test1",
+		},
+		{
+			name:          "empty key in edit detail value should set info bag for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailKey,
+			newStage:      editDetailKey,
+			oldUserFlow:   newDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid key. You can exit flow by pressing <esc> if needed",
+		},
+		{
+			name:          "duplicate key in edit detail value should set info bag for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailKey,
+			oldUserFlow:   newDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Key test already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!",
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			value:         "test",
+		},
+		{
+			name:          "correct key should move stage to next stage for new detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailConfirm,
+			oldUserFlow:   newDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test1",
+			value:         "test",
+		},
+		{
+			name:          "empty key in edit detail value should set info bag for update detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailKey,
+			oldUserFlow:   updateDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid key. You can exit flow by pressing <esc> if needed",
+		},
+		{
+			name:          "duplicate key in edit detail value should set info bag for update detail if not current detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailKey,
+			oldUserFlow:   updateDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Key test already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!",
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			value:         "test",
+			currentDetail: &data.Detail{ID: 2, Key: "test", Value: "test", ProfileID: 1},
+		},
+		{
+			name:          "key in duplicate key check in edit detail value should go through if editing the same detail in update detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailConfirm,
+			oldUserFlow:   updateDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			value:         "test",
+			currentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", ProfileID: 1},
+		},
+		{
+			name:          "correct key should move stage to next stage for update detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailConfirm,
+			oldUserFlow:   updateDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test1",
+			value:         "test",
+		},
+		{
+			name:          "empty value should set info bag in edit detail value",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailValue,
+			newStage:      editDetailValue,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid value. You can exit flow by pressing <esc> if needed",
+			key:           "test",
+		},
+		{
+			name:          "empty key in edit detail confirm should set info bag",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailConfirm,
+			newStage:      editDetailKey,
+			oldUserFlow:   newDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid key. You can exit flow by pressing <esc> if needed",
+		},
+		{
+			name:          "empty value should set info bag in edit detail confirm",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailConfirm,
+			newStage:      editDetailValue,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Please pass a valid value. You can exit flow by pressing <esc> if needed",
+			key:           "test",
+		},
+		{
+			name:          "duplicate key in edit detail confirm should set info bag for update detail if not current detail",
+			oldActivePane: detailDisplayPane,
+			newActivePane: detailDisplayPane,
+			oldStage:      editDetailConfirm,
+			newStage:      editDetailKey,
+			oldUserFlow:   updateDetail,
+			infoFlag:      true,
+			isErrInfo:     true,
+			infoMsg:       "Key test already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!",
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			currentDetail: &data.Detail{ID: 2, Key: "test", Value: "test", ProfileID: 1},
+		},
+		{
+			name:          "key in duplicate key check in edit detail confirm should go through if editing the same detail in update detail",
+			oldActivePane: detailActionPane,
+			newActivePane: detailActionPane,
+			oldStage:      editDetailConfirm,
+			newStage:      editDetailConfirm,
+			oldUserFlow:   updateDetail,
+			details:       []data.Detail{{ID: 1, Key: "test", Value: "test", ProfileID: 1}},
+			key:           "test",
+			value:         "test",
+			currentDetail: &data.Detail{ID: 1, Key: "test", Value: "test", ProfileID: 1},
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			detailPage := NewDetailPage(detailModelStub{})
+			detailPage.activePane = testcase.oldActivePane
+			detailPage.currentStage = testcase.oldStage
+			detailPage.currentUserFlow = testcase.oldUserFlow
+			detailPage.details = testcase.details
+			detailPage.currentDetail = testcase.currentDetail
+			detailPage.keyInput.SetValue(testcase.key)
+			detailPage.valueInput.SetValue(testcase.value)
+
+			detailPage.handleEditDetailEnter()
+
+			assert.Equal(t, testcase.newActivePane, detailPage.activePane)
+			assert.Equal(t, testcase.newStage, detailPage.currentStage)
+			assert.Equal(t, testcase.infoFlag, detailPage.infoFlag)
+			assert.Equal(t, testcase.isErrInfo, detailPage.isErrInfo)
+			assert.Equal(t, testcase.infoMsg, detailPage.infoMsg)
 		})
 	}
 }

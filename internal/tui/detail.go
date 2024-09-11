@@ -920,6 +920,7 @@ func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 			d.infoFlag = true
 			d.isErrInfo = true
 			d.infoMsg = "Please pass a valid value. You can exit flow by pressing <esc> if needed"
+            d.currentStage = editDetailValue
 			return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
 		}
 
