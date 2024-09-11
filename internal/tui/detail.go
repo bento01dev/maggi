@@ -903,6 +903,7 @@ func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 			d.isErrInfo = true
 			d.infoMsg = "Please pass a valid key. You can exit flow by pressing <esc> if needed"
 			d.currentStage = editDetailKey
+			d.activePane = detailDisplayPane
 			d.valueInput.Cursor.SetMode(cursor.CursorHide)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
@@ -912,6 +913,7 @@ func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 			d.isErrInfo = true
 			d.infoMsg = fmt.Sprintf("Key %s already exists in profile. You can <esc> to edit or delete the existing entry before creating a new one!", key)
 			d.currentStage = editDetailKey
+			d.activePane = detailDisplayPane
 			d.valueInput.Cursor.SetMode(cursor.CursorHide)
 			return tea.Batch(d.keyInput.Focus(), d.keyInput.Cursor.BlinkCmd())
 		}
@@ -920,7 +922,8 @@ func (d *DetailPage) handleEditDetailEnter() tea.Cmd {
 			d.infoFlag = true
 			d.isErrInfo = true
 			d.infoMsg = "Please pass a valid value. You can exit flow by pressing <esc> if needed"
-            d.currentStage = editDetailValue
+			d.currentStage = editDetailValue
+			d.activePane = detailDisplayPane
 			return tea.Batch(d.valueInput.Focus(), d.valueInput.Cursor.BlinkCmd())
 		}
 
