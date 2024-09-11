@@ -1077,14 +1077,14 @@ func TestHandleDetailDelete(t *testing.T) {
 		oldCurrentStage detailStage
 		newCurrentStage detailStage
 	}{
-        {
-            name: "enter on view switch to confirm",
-            oldActivePane: detailDisplayPane,
-            newActivePane: detailActionPane,
-            oldCurrentStage: deleteDetailView,
-            newCurrentStage: deleteDetailConfirm,
-        },
-    }
+		{
+			name:            "enter on view switch to confirm",
+			oldActivePane:   detailDisplayPane,
+			newActivePane:   detailActionPane,
+			oldCurrentStage: deleteDetailView,
+			newCurrentStage: deleteDetailConfirm,
+		},
+	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
