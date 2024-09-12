@@ -7,6 +7,10 @@ import (
 	"github.com/bento01dev/maggi/internal/data"
 )
 
+type GenerateProfileRepository interface {
+	GetDetailsByProfileName(name string) ([]data.Detail, error)
+}
+
 func Run(profileName string) error {
 	//TODO: this should move to main once repository is used in tui
 	db, err := data.Setup()
@@ -21,17 +25,20 @@ func Run(profileName string) error {
 		return nil
 	}
 
-	details, err := profileRepository.GetDetailsByProfileName(profileName)
+	generatedStr, err := generate(profileRepository, profileName)
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(generate(details))
+	fmt.Println(generatedStr)
 
 	return nil
 }
 
-func generate(details []data.Detail) string {
+func generate(repository GenerateProfileRepository, profileName string) (string, error) {
+	details, err := repository.GetDetailsByProfileName(profileName)
+	if err != nil {
+		return "", err
+	}
 	var b strings.Builder
 
 	for _, detail := range details {
@@ -42,5 +49,5 @@ func generate(details []data.Detail) string {
 			fmt.Fprintf(&b, "export %s=%s;", detail.Key, detail.Value)
 		}
 	}
-	return b.String()
+	return b.String(), nil
 }
