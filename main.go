@@ -5,8 +5,6 @@ import (
 	"os"
 
 	"github.com/bento01dev/maggi/internal/generate"
-	"github.com/bento01dev/maggi/internal/profile"
-	"github.com/bento01dev/maggi/internal/search"
 	"github.com/bento01dev/maggi/internal/tui"
 	"github.com/urfave/cli/v2"
 )
@@ -17,7 +15,6 @@ func main() {
 
 func runApp() {
 	var profileStr string
-	var queryStr string
 	var debugFlag bool
 
 	app := &cli.App{
@@ -40,48 +37,17 @@ func runApp() {
 				},
 			},
 			{
-				Name:  "profiles",
-				Usage: "List active profiles",
-				Action: func(ctx *cli.Context) error {
-					return profile.Run()
-				},
-			},
-			{
 				Name:  "generate",
 				Usage: "generate the alias file for give profile",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:        "profile",
-						Value:       "dev",
 						Usage:       "pass profile for generating the required alias file",
 						Destination: &profileStr,
-						Required:    true,
 					},
 				},
 				Action: func(ctx *cli.Context) error {
 					return generate.Run(profileStr)
-				},
-			},
-			{
-				Name:  "search",
-				Usage: "search based on description of aliases",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:        "profile",
-						Value:       "dev",
-						Usage:       "pass profile for searching",
-						Destination: &profileStr,
-						Required:    true,
-					},
-					&cli.StringFlag{
-						Name:        "query",
-						Usage:       "pass the query string for comparison",
-						Destination: &queryStr,
-						Required:    true,
-					},
-				},
-				Action: func(ctx *cli.Context) error {
-					return search.Run(profileStr, queryStr)
 				},
 			},
 		},
