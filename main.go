@@ -40,8 +40,8 @@ func runApp() {
 						return err
 					}
 					defer db.Close()
-					profileRepository := data.NewProfileRepository(db)
-					return tui.Run(debugFlag, profileRepository)
+					maggiRepository := data.NewMaggiRepository(db)
+					return tui.Run(debugFlag, maggiRepository)
 				},
 			},
 			{
@@ -61,8 +61,8 @@ func runApp() {
 						return nil
 					}
 					defer db.Close()
-					profileRepository := data.NewProfileRepository(db)
-					generate.GenerateForProfile(profileStr, profileRepository)
+					maggiRepository := data.NewMaggiRepository(db)
+					generate.GenerateForProfile(profileStr, maggiRepository)
 					return nil
 				},
 			},
@@ -82,8 +82,8 @@ func runApp() {
 						return nil
 					}
 					defer db.Close()
-					profileRepository := data.NewProfileRepository(db)
-					generate.GenerateForSession(defaultProfile, profileRepository)
+					maggiRepository := data.NewMaggiRepository(db)
+					generate.GenerateForSession(defaultProfile, maggiRepository)
 					return nil
 				},
 			},

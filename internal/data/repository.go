@@ -5,17 +5,17 @@ import (
 	"errors"
 )
 
-type ProfileRepository struct {
+type MaggiRepository struct {
 	db *sql.DB
 }
 
-func NewProfileRepository(db *sql.DB) *ProfileRepository {
-	return &ProfileRepository{db: db}
+func NewMaggiRepository(db *sql.DB) *MaggiRepository {
+	return &MaggiRepository{db: db}
 }
 
-func (pr *ProfileRepository) GetDetailsByProfileName(profileName string) ([]Detail, error) {
+func (mr *MaggiRepository) GetDetailsByProfileName(profileName string) ([]Detail, error) {
 	stmt := "select details.id, details.key, details.value, details.type, details.profile_id from details join profiles where details.profile_id = profiles.id and profiles.name = ?;"
-	rows, err := pr.db.Query(stmt, profileName)
+	rows, err := mr.db.Query(stmt, profileName)
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +42,9 @@ func (pr *ProfileRepository) GetDetailsByProfileName(profileName string) ([]Deta
 	return details, nil
 }
 
-func (pr *ProfileRepository) GetAllDetails(profileId int) ([]Detail, error) {
+func (mr *MaggiRepository) GetAllDetails(profileId int) ([]Detail, error) {
 	stmt := "SELECT id, key, value, type, profile_id FROM details WHERE profile_id = ?;"
-	rows, err := pr.db.Query(stmt, profileId)
+	rows, err := mr.db.Query(stmt, profileId)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +72,10 @@ func (pr *ProfileRepository) GetAllDetails(profileId int) ([]Detail, error) {
 	return details, nil
 }
 
-func (pr *ProfileRepository) AddDetail(key string, value string, detailType DetailType, profileID int) (*Detail, error) {
+func (mr *MaggiRepository) AddDetail(key string, value string, detailType DetailType, profileID int) (*Detail, error) {
 	var detail Detail
 	stmt := "INSERT INTO details (key, value, type, profile_id) VALUES (?, ?, ?, ?);"
-	res, err := pr.db.Exec(stmt, key, value, detailType.String(), profileID)
+	res, err := mr.db.Exec(stmt, key, value, detailType.String(), profileID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,9 +87,9 @@ func (pr *ProfileRepository) AddDetail(key string, value string, detailType Deta
 	return &detail, nil
 }
 
-func (pr *ProfileRepository) UpdateDetail(detail Detail, key string, value string) (*Detail, error) {
+func (mr *MaggiRepository) UpdateDetail(detail Detail, key string, value string) (*Detail, error) {
 	stmt := "UPDATE details SET key = ?, value = ? WHERE id = ?;"
-	_, err := pr.db.Exec(stmt, key, value, detail.ID)
+	_, err := mr.db.Exec(stmt, key, value, detail.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,15 +98,15 @@ func (pr *ProfileRepository) UpdateDetail(detail Detail, key string, value strin
 	return &detail, nil
 }
 
-func (pr *ProfileRepository) DeleteDetail(detail Detail) error {
+func (mr *MaggiRepository) DeleteDetail(detail Detail) error {
 	stmt := "DELETE FROM details WHERE id = ?;"
-	_, err := pr.db.Exec(stmt, detail.ID)
+	_, err := mr.db.Exec(stmt, detail.ID)
 	return err
 }
 
-func (pr *ProfileRepository) GetAllProfiles() ([]Profile, error) {
+func (mr *MaggiRepository) GetAllProfiles() ([]Profile, error) {
 	stmt := "SELECT id, name from profiles"
-	rows, err := pr.db.Query(stmt)
+	rows, err := mr.db.Query(stmt)
 	if err != nil {
 		return nil, err
 	}
@@ -126,10 +126,10 @@ func (pr *ProfileRepository) GetAllProfiles() ([]Profile, error) {
 	return profiles, nil
 }
 
-func (pr *ProfileRepository) AddProfile(name string) (Profile, error) {
+func (mr *MaggiRepository) AddProfile(name string) (Profile, error) {
 	var profile Profile
 	stmt := "INSERT INTO profiles (name) VALUES (?);"
-	res, err := pr.db.Exec(stmt, name)
+	res, err := mr.db.Exec(stmt, name)
 	if err != nil {
 		return profile, err
 	}
@@ -140,9 +140,9 @@ func (pr *ProfileRepository) AddProfile(name string) (Profile, error) {
 	return Profile{ID: int(id), Name: name}, nil
 }
 
-func (pr *ProfileRepository) UpdateProfile(profile Profile, newName string) (Profile, error) {
+func (mr *MaggiRepository) UpdateProfile(profile Profile, newName string) (Profile, error) {
 	stmt := "UPDATE profiles SET name = ? WHERE id = ?;"
-	_, err := pr.db.Exec(stmt, newName, profile.ID)
+	_, err := mr.db.Exec(stmt, newName, profile.ID)
 	if err != nil {
 		return profile, err
 	}
@@ -150,8 +150,8 @@ func (pr *ProfileRepository) UpdateProfile(profile Profile, newName string) (Pro
 	return profile, nil
 }
 
-func (pr *ProfileRepository) DeleteProfile(profile Profile) error {
-	tx, err := pr.db.Begin()
+func (mr *MaggiRepository) DeleteProfile(profile Profile) error {
+	tx, err := mr.db.Begin()
 	if err != nil {
 		rollbackErr := tx.Rollback()
 		if rollbackErr != nil {

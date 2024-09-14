@@ -101,7 +101,7 @@ type MaggiModel struct {
 	err         error
 }
 
-type MaggiRepository interface {
+type tuiRepository interface {
 	GetDetailsByProfileName(profileName string) ([]data.Detail, error)
 	GetAllDetails(profileId int) ([]data.Detail, error)
 	AddDetail(key string, value string, detailType data.DetailType, profileID int) (*data.Detail, error)
@@ -113,7 +113,7 @@ type MaggiRepository interface {
 	DeleteProfile(profile data.Profile) error
 }
 
-func NewMaggiModel(debugFlag bool, maggiRepository MaggiRepository) *MaggiModel {
+func NewMaggiModel(debugFlag bool, maggiRepository tuiRepository) *MaggiModel {
 	return &MaggiModel{
 		pages: map[pageType]Page{
 			issue:   NewIssuePage(debugFlag),
