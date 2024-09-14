@@ -94,6 +94,7 @@ func GenerateList(items []list.Item, renderFunc ListRenderFunc, width int, heigh
 }
 
 type MaggiModel struct {
+	quitting    bool
 	currentPage pageType
 	pages       map[pageType]Page
 	profile     data.Profile
@@ -127,6 +128,7 @@ func (m *MaggiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
+			m.quitting = true
 			return m, tea.Quit
 		}
 	case PageTurner:
@@ -165,6 +167,9 @@ func (m *MaggiModel) pageInitCmd() tea.Cmd {
 }
 
 func (m *MaggiModel) View() string {
+	if m.quitting {
+		return ""
+	}
 	page, ok := m.pages[m.currentPage]
 	if !ok {
 		return "something horribly wrong with the app"
