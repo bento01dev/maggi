@@ -101,12 +101,24 @@ type MaggiModel struct {
 	err         error
 }
 
-func NewMaggiModel(debugFlag bool, dataModel data.DataModel) *MaggiModel {
+type MaggiRepository interface {
+	GetDetailsByProfileName(profileName string) ([]data.Detail, error)
+	GetAllDetails(profileId int) ([]data.Detail, error)
+	AddDetail(key string, value string, detailType data.DetailType, profileID int) (*data.Detail, error)
+	UpdateDetail(detail data.Detail, key string, value string) (*data.Detail, error)
+	DeleteDetail(detail data.Detail) error
+	GetAllProfiles() ([]data.Profile, error)
+	AddProfile(name string) (data.Profile, error)
+	UpdateProfile(profile data.Profile, newName string) (data.Profile, error)
+	DeleteProfile(profile data.Profile) error
+}
+
+func NewMaggiModel(debugFlag bool, maggiRepository MaggiRepository) *MaggiModel {
 	return &MaggiModel{
 		pages: map[pageType]Page{
 			issue:   NewIssuePage(debugFlag),
-			profile: NewProfilePage(dataModel.Profiles, dataModel.Details),
-			detail:  NewDetailPage(dataModel.Details),
+			profile: NewProfilePage(maggiRepository),
+			detail:  NewDetailPage(maggiRepository),
 		},
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/bento01dev/maggi/internal/data"
 	"github.com/bento01dev/maggi/internal/generate"
 	"github.com/bento01dev/maggi/internal/tui"
 	"github.com/urfave/cli/v2"
@@ -34,7 +35,13 @@ func runApp() {
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-					return tui.Run(debugFlag)
+					db, err := data.Setup()
+					if err != nil {
+						return err
+					}
+					defer db.Close()
+					profileRepository := data.NewProfileRepository(db)
+					return tui.Run(debugFlag, profileRepository)
 				},
 			},
 			{
@@ -49,7 +56,13 @@ func runApp() {
 				},
 				Action: func(ctx *cli.Context) error {
 					// should the error be dropped since the output is run via eval?
-					generate.GenerateForProfile(profileStr)
+					db, err := data.Setup()
+					if err != nil {
+						return nil
+					}
+					defer db.Close()
+					profileRepository := data.NewProfileRepository(db)
+					generate.GenerateForProfile(profileStr, profileRepository)
 					return nil
 				},
 			},
@@ -64,7 +77,13 @@ func runApp() {
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-					generate.GenerateForSession(defaultProfile)
+					db, err := data.Setup()
+					if err != nil {
+						return nil
+					}
+					defer db.Close()
+					profileRepository := data.NewProfileRepository(db)
+					generate.GenerateForSession(defaultProfile, profileRepository)
 					return nil
 				},
 			},

@@ -1,19 +1,11 @@
 package tui
 
 import (
-	"github.com/bento01dev/maggi/internal/data"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func Run(debugFlag bool) error {
-	db, err := data.Setup()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	dataModel := data.NewDataModel(db)
-	model := NewMaggiModel(debugFlag, dataModel)
+func Run(debugFlag bool, maggiRespository MaggiRepository) error {
+	model := NewMaggiModel(debugFlag, maggiRespository)
 	if _, err := tea.NewProgram(model).Run(); err != nil {
 		return err
 	}

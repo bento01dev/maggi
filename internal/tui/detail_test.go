@@ -17,19 +17,19 @@ type detailModelStub struct {
 	delete func(detail data.Detail) error
 }
 
-func (ds detailModelStub) GetAll(profileID int) ([]data.Detail, error) {
+func (ds detailModelStub) GetAllDetails(profileID int) ([]data.Detail, error) {
 	return ds.getAll(profileID)
 }
 
-func (ds detailModelStub) Add(key string, value string, detailType data.DetailType, profileID int) (*data.Detail, error) {
+func (ds detailModelStub) AddDetail(key string, value string, detailType data.DetailType, profileID int) (*data.Detail, error) {
 	return ds.add(key, value, detailType, profileID)
 }
 
-func (ds detailModelStub) Update(detail data.Detail, key, value string) (*data.Detail, error) {
+func (ds detailModelStub) UpdateDetail(detail data.Detail, key, value string) (*data.Detail, error) {
 	return ds.update(detail, key, value)
 }
 
-func (ds detailModelStub) Delete(detail data.Detail) error {
+func (ds detailModelStub) DeleteDetail(detail data.Detail) error {
 	return ds.delete(detail)
 }
 

@@ -145,6 +145,13 @@ type detailModel interface {
 	Delete(detail data.Detail) error
 }
 
+type detailPageRepository interface {
+	GetAllDetails(profileId int) ([]data.Detail, error)
+	AddDetail(key string, value string, detailType data.DetailType, profileID int) (*data.Detail, error)
+	UpdateDetail(detail data.Detail, key string, value string) (*data.Detail, error)
+	DeleteDetail(detail data.Detail) error
+}
+
 type DetailPage struct {
 	currentDetail     *data.Detail
 	emptyDisplay      bool
@@ -158,7 +165,7 @@ type DetailPage struct {
 	activePane        detailPagePane
 	infoMsg           string
 	currentProfile    data.Profile
-	detailModel       detailModel
+	repository        detailPageRepository
 	details           []data.Detail
 	helpMenu          help.Model
 	keys              detailHelpKeys
@@ -189,7 +196,7 @@ type DetailPage struct {
 	actions           []string
 }
 
-func NewDetailPage(detailDataModel detailModel) *DetailPage {
+func NewDetailPage(repository detailPageRepository) *DetailPage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
 	descStyle := lipgloss.NewStyle().Foreground(muted)
@@ -249,7 +256,7 @@ func NewDetailPage(detailDataModel detailModel) *DetailPage {
 	deleteButton := baseButton.Copy().Background(red)
 
 	return &DetailPage{
-		detailModel:       detailDataModel,
+		repository:        repository,
 		helpMenu:          helpMenu,
 		keys:              keys,
 		actionsStyle:      actionsStyle,
@@ -310,7 +317,7 @@ func createTextInput(enabled bool, placeholder string, value string, width int, 
 }
 
 func (d *DetailPage) getDetails() tea.Msg {
-	res, err := d.detailModel.GetAll(d.currentProfile.ID)
+	res, err := d.repository.GetAllDetails(d.currentProfile.ID)
 	if err != nil {
 		return retrieveDetailsMsg{err: err}
 	}
@@ -325,7 +332,7 @@ func (d *DetailPage) addDetail(key, value string) (*data.Detail, error) {
 	case detailTypeEnv:
 		dataDetailType = data.EnvDetail
 	}
-	detail, err := d.detailModel.Add(key, value, dataDetailType, d.currentProfile.ID)
+	detail, err := d.repository.AddDetail(key, value, dataDetailType, d.currentProfile.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +340,7 @@ func (d *DetailPage) addDetail(key, value string) (*data.Detail, error) {
 }
 
 func (d *DetailPage) updateDetail(key, value string) (*data.Detail, error) {
-	detail, err := d.detailModel.Update(*d.currentDetail, key, value)
+	detail, err := d.repository.UpdateDetail(*d.currentDetail, key, value)
 	if err != nil {
 		return nil, err
 	}
@@ -341,12 +348,12 @@ func (d *DetailPage) updateDetail(key, value string) (*data.Detail, error) {
 }
 
 func (d *DetailPage) deleteDetail() error {
-	err := d.detailModel.Delete(*d.currentDetail)
+	err := d.repository.DeleteDetail(*d.currentDetail)
 	return err
 }
 
 func (d *DetailPage) resetDetails() error {
-	details, err := d.detailModel.GetAll(d.currentProfile.ID)
+	details, err := d.repository.GetAllDetails(d.currentProfile.ID)
 	if err != nil {
 		return err
 	}

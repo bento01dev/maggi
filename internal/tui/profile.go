@@ -145,6 +145,13 @@ type profileDetailModel interface {
 	DeleteAll(tx *sql.Tx, profileID int) error
 }
 
+type profilePageRepository interface {
+	GetAllProfiles() ([]data.Profile, error)
+	AddProfile(name string) (data.Profile, error)
+	UpdateProfile(profile data.Profile, newName string) (data.Profile, error)
+	DeleteProfile(profile data.Profile) error
+}
+
 type ProfilePage struct {
 	newProfileOption  bool
 	infoFlag          bool
@@ -154,8 +161,7 @@ type ProfilePage struct {
 	currentUserFlow   profileUserFlow
 	activePane        profilePagePane
 	currentStage      profileStage
-	profileModel      profileModel
-	detailModel       profileDetailModel
+	repository        profilePageRepository
 	currentProfile    *data.Profile
 	infoMsg           string
 	actions           []string
@@ -175,7 +181,7 @@ type ProfilePage struct {
 	issuesStyle       lipgloss.Style
 }
 
-func NewProfilePage(profileDataModel profileModel, detailDataModel profileDetailModel) *ProfilePage {
+func NewProfilePage(repository profilePageRepository) *ProfilePage {
 	helpMenu := help.New()
 	keyStyle := lipgloss.NewStyle().Foreground(muted)
 	descStyle := lipgloss.NewStyle().Foreground(muted)
@@ -231,8 +237,7 @@ func NewProfilePage(profileDataModel profileModel, detailDataModel profileDetail
 	deleteButton := baseButton.Copy().Background(red)
 
 	return &ProfilePage{
-		profileModel:      profileDataModel,
-		detailModel:       detailDataModel,
+		repository:        repository,
 		helpMenu:          helpMenu,
 		keys:              keys,
 		actionsStyle:      actionsStyle,
@@ -314,7 +319,7 @@ func (p *ProfilePage) resetInfoBag() {
 }
 
 func (p *ProfilePage) getProfiles() retrieveMsg {
-	profiles, err := p.profileModel.GetAll()
+	profiles, err := p.repository.GetAllProfiles()
 	if err != nil {
 		return retrieveMsg{err: err}
 	}
@@ -322,7 +327,7 @@ func (p *ProfilePage) getProfiles() retrieveMsg {
 }
 
 func (p *ProfilePage) addProfile(name string) error {
-	profile, err := p.profileModel.Add(name)
+	profile, err := p.repository.AddProfile(name)
 	if err != nil {
 		return err
 	}
@@ -331,7 +336,7 @@ func (p *ProfilePage) addProfile(name string) error {
 }
 
 func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error {
-	_, err := p.profileModel.Update(*profile, newName)
+	_, err := p.repository.UpdateProfile(*profile, newName)
 	if err != nil {
 		return err
 	}
@@ -339,7 +344,7 @@ func (p *ProfilePage) updateProfile(profile *data.Profile, newName string) error
 }
 
 func (p *ProfilePage) deleteProfile(profile *data.Profile) error {
-	err := p.profileModel.Delete(*profile, p.detailModel.DeleteAll)
+	err := p.repository.DeleteProfile(*profile)
 	if err != nil {
 		return err
 	}
@@ -401,7 +406,7 @@ func (p *ProfilePage) setActionsList() {
 }
 
 func (p *ProfilePage) resetProfiles() error {
-	newProfiles, err := p.profileModel.GetAll()
+	newProfiles, err := p.repository.GetAllProfiles()
 	if err != nil {
 		return err
 	}

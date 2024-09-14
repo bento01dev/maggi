@@ -13,16 +13,7 @@ type GenerateProfileRepository interface {
 	GetDetailsByProfileName(name string) ([]data.Detail, error)
 }
 
-func GenerateForProfile(profileName string) error {
-	//TODO: this should move to main once repository is used in tui
-	db, err := data.Setup()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	profileRepository := data.NewProfileRepository(db)
-
+func GenerateForProfile(profileName string, profileRepository GenerateProfileRepository) error {
 	if profileName == "" {
 		return nil
 	}
@@ -36,16 +27,10 @@ func GenerateForProfile(profileName string) error {
 	return nil
 }
 
-func GenerateForSession(defaultProfile string) error {
-	db, err := data.Setup()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	profileRepository := data.NewProfileRepository(db)
+func GenerateForSession(defaultProfile string, profileRepository GenerateProfileRepository) error {
 	var defaultDetails string
 	var profileDetails string
+	var err error
 	if defaultProfile != "" {
 		defaultDetails, err = generate(profileRepository, defaultProfile)
 		if err != nil {
